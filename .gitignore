@@ -28,3 +28,6 @@ Thumbs.db
 # Archivos temporales
 *.tmp
 *.temp
+
+#Dependencia Externa: Steve mantiene su propio repositorio de repositorio
+steve/
