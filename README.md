@@ -20,8 +20,7 @@ virtualmente el comportamiento de una estación de carga.
 
 ## Arquitectura prevista
 
-```text
-┌─────────────────────────────┐
+ ─────────────────────────────┐
 │     Interfaz del simulador  │
 └──────────────┬──────────────┘
                │
