@@ -170,3 +170,19 @@ EV-CyberRange/
 4. [ ] Actualizar mqtt_bridge.py para topics correctos
 5. [ ] Probar flujo end-to-end
 6. [ ] Documentar vectores de ataque sin OCPP
+
+
+---
+## Backlog: Kali Linux en Navegador
+
+**Objetivo:** Integrar Kali Linux accesible desde el navegador para ejecutar ataques sin necesidad de VMs adicionales.
+
+**Opciones evaluadas:**
+1. **Kali + noVNC (recomendado)** - `kalilinux/kali-rolling` + VNC + noVNC en puerto 6080
+2. Apache Guacamole - Gateway HTML5, más complejo
+3. WebSSH headless - Solo terminal, sin GUI
+
+**Implementación futura:** Agregar servicio `kali-attack` al docker-compose con:
+- Herramientas pre-instaladas: nmap, wireshark, mitmproxy, mosquitto-clients
+- Red compartida con EVerest para ataques MQTT/red
+- Acceso via http://localhost:6080

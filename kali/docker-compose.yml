@@ -1,0 +1,63 @@
+# EV-CyberRange Kali Linux Attack Host
+# Provides browser-accessible attack environment
+
+services:
+  kali-attack:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kali-attack
+    hostname: kali-attack
+    privileged: true  # Required for network tools (tcpdump, arp, etc.)
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      - ev-cyberrange
+    ports:
+      - "6080:6080"   # noVNC web interface
+      - "5901:5901"   # VNC direct (optional)
+    volumes:
+      # Persist captures and evidence
+      - kali-captures:/root/captures
+      - kali-logs:/root/logs
+      - kali-evidence:/root/evidence
+      # Mount custom tools from host (for development)
+      - ./tools:/root/tools:ro
+    environment:
+      - MQTT_HOST=everest-mqtt
+      - MQTT_PORT=1883
+      - TARGET_EVSE=everest-manager
+      - DISPLAY=:1
+    depends_on:
+      - everest-mqtt
+    restart: unless-stopped
+
+  # MQTT broker is defined in everest/docker-compose.yml
+  # This reference ensures Kali can reach it
+  everest-mqtt:
+    image: eclipse-mosquitto:2
+    container_name: everest-mqtt
+    networks:
+      - ev-cyberrange
+    ports:
+      - "1883:1883"
+    volumes:
+      - ../everest/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+
+networks:
+  ev-cyberrange:
+    name: ev-cyberrange
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  kali-captures:
+    name: ev-cyberrange-captures
+  kali-logs:
+    name: ev-cyberrange-logs
+  kali-evidence:
+    name: ev-cyberrange-evidence
