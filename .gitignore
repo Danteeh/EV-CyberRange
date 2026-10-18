@@ -1,34 +1,137 @@
+# =============================================================================
+# EV-CyberRange - Solo conservar frontend/ y simulator/backend/
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# EXCLUIR TODO LO QUE NO ES NUESTRO CÓDIGO
+# -----------------------------------------------------------------------------
+
+# EVerest completo (descargarlo fresh en cada instalación)
+/everest/
+
+# SteVe completo (viene con EVerest o se descarga aparte)
+/steve/
+
+# Logs
+/logs/
+*.log
+nohup.out
+
+# Configuración de Kiro (IDE/agente)
+/.kiro/
+
+# Archivos de configuración legacy
+/config/
+
+# Tests legacy
+/tests/
+
+# Documentación legacy (regenerar con el proyecto nuevo)
+/docs/
+
+# Scripts de instalación legacy
+install.ps1
+install-portable.ps1
+verify-export.ps1
+create-backup.ps1
+
+# Scripts de arranque legacy (crear nuevos)
+start-lab.ps1
+stop-lab.ps1
+star-lab.ps1
+start-backend.ps1
+start-backend.sh
+start-frontend.ps1
+start-everest-wsl.sh
+launch-everest.sh
+run-with-log.sh
+run-evcr.sh
+test-auth.sh
+
+# Documentación de exportación legacy
+INSTALL-GUIDE.md
+QUICKSTART.md
+EXPORT-CHECKLIST.md
+EXPORT-SUMMARY.md
+SECURITY-QUICK-REFERENCE.md
+
+# -----------------------------------------------------------------------------
+# DEPENDENCIAS Y ARTIFACTS (regenerar con npm/pip install)
+# -----------------------------------------------------------------------------
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
 .venv/
 venv/
-
-# Node
-node_modules/
+ENV/
+env/
+.eggs/
+*.egg-info/
+*.egg
 dist/
 build/
+*.whl
 
-# Entornos / variables
-.env
-.env.*
-!.env.example
+# -----------------------------------------------------------------------------
+# ARCHIVOS DE SISTEMA Y TEMPORALES
+# -----------------------------------------------------------------------------
 
-# IDE
-.vscode/
-.idea/
-
-# Sistema operativo
+# OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Logs
-*.log
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+*.sublime-workspace
+*.sublime-project
 
-# Archivos temporales
+# Temporales
 *.tmp
 *.temp
+*.bak
+*.backup
+*.old
 
-#Dependencia Externa: Steve mantiene su propio repositorio de repositorio
-steve/
-everest/
+# -----------------------------------------------------------------------------
+# ARCHIVOS DE CONFIGURACIÓN SENSIBLES (crear .env.example)
+# -----------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+
+# -----------------------------------------------------------------------------
+# ESTO SÍ SE INCLUYE (frontend/ y simulator/backend/)
+# -----------------------------------------------------------------------------
+# !frontend/
+# !frontend/**
+# !simulator/
+# !simulator/backend/
+# !simulator/backend/**
+# !README.md

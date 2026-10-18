@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root {
+  --cr-bg: #0a0e1a;
+  --cr-surface: #111827;
+  --cr-surface2: #1f2937;
+  --cr-border: #374151;
+  --cr-accent: #00d4ff;
+  --cr-accent2: #7c3aed;
+  --cr-green: #10b981;
+  --cr-yellow: #f59e0b;
+  --cr-red: #ef4444;
+  --cr-text: #f9fafb;
+  --cr-text-muted: #9ca3af;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--cr-bg);
+  color: var(--cr-text);
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  overflow: hidden;
+  height: 100vh;
+}
+
+#root { height: 100vh; display: flex; flex-direction: column; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--cr-surface); }
+::-webkit-scrollbar-thumb { background: var(--cr-border); border-radius: 3px; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes flow-dash {
+  0% { stroke-dashoffset: 40; }
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes charge-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--cr-green)); }
+  50% { filter: drop-shadow(0 0 16px var(--cr-green)); }
+}
+@keyframes attack-glow {
+  0%, 100% { filter: drop-shadow(0 0 6px var(--cr-red)); }
+  50% { filter: drop-shadow(0 0 22px var(--cr-red)); }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.anim-pulse-dot  { animation: pulse-dot 1.5s ease-in-out infinite; }
+.anim-charge     { animation: charge-glow 2s ease-in-out infinite; }
+.anim-attack     { animation: attack-glow 0.8s ease-in-out infinite; }
+.anim-fade-in    { animation: fade-in 0.2s ease-out both; }
+.anim-flow       { animation: flow-dash 0.8s linear infinite; stroke-dasharray: 8 4; }
