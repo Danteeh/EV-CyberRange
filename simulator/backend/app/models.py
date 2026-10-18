@@ -25,8 +25,12 @@ class ConnectorState(str, Enum):
     RESERVED = "Reserved"
     UNAVAILABLE = "Unavailable"
     FAULTED = "Faulted"
-    # Estados internos de EVerest (no OCPP, pero que EVerest publica en session_info)
+    # Estados reales de EVerest AC Simulation (session_info.state)
     UNPLUGGED = "Unplugged"
+    CHARGING_PAUSED_EV = "ChargingPausedEV"
+    CHARGING_PAUSED_EVSE = "ChargingPausedEVSE"
+    FINISHED = "Finished"
+    # Estados legacy internos de EVerest
     WAITING_FOR_AUTHENTICATION = "WaitingForAuthentication"
     TRANSACTION_STARTED = "TransactionStarted"
     TRANSACTION_FINISHED = "TransactionFinished"
@@ -111,6 +115,18 @@ class ConnectorStatus:
     id_tag: str | None = None
     charging_duration_s: int = 0
     metrics: PowerMetrics = field(default_factory=PowerMetrics)
+    # Campos de EVerest AC Simulation
+    max_current_a: float = 32.0
+    phases_available: int = 3
+    max_current_import_a: float = 32.0
+    min_current_import_a: float = 6.0
+    connector_type: str = "Unknown"
+    fan_rpm: float = 0.0
+    supply_voltage_12v: float = 0.0
+    # Telemetria avanzada
+    cp_state: str = ""
+    cp_pwm_duty_cycle: float = 0.0
+    relais_on: bool = False
     updated_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -123,6 +139,16 @@ class ConnectorStatus:
             "id_tag": self.id_tag,
             "charging_duration_s": self.charging_duration_s,
             "metrics": self.metrics.to_dict(),
+            "max_current_a": self.max_current_a,
+            "phases_available": self.phases_available,
+            "max_current_import_a": self.max_current_import_a,
+            "min_current_import_a": self.min_current_import_a,
+            "connector_type": self.connector_type,
+            "fan_rpm": self.fan_rpm,
+            "supply_voltage_12v": self.supply_voltage_12v,
+            "cp_state": self.cp_state,
+            "cp_pwm_duty_cycle": self.cp_pwm_duty_cycle,
+            "relais_on": self.relais_on,
             "updated_at": self.updated_at,
         }
 

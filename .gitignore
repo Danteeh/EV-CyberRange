@@ -6,10 +6,7 @@
 # EXCLUIR TODO LO QUE NO ES NUESTRO CÓDIGO
 # -----------------------------------------------------------------------------
 
-# EVerest completo (descargarlo fresh en cada instalación)
-/everest/
-
-# SteVe completo (viene con EVerest o se descarga aparte)
+# SteVe completo (NO lo usamos en MVP 2)
 /steve/
 
 # Logs
@@ -25,9 +22,6 @@ nohup.out
 
 # Tests legacy
 /tests/
-
-# Documentación legacy (regenerar con el proyecto nuevo)
-/docs/
 
 # Scripts de instalación legacy
 install.ps1

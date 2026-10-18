@@ -28,11 +28,19 @@ from .state_store import station
 
 log = logging.getLogger(__name__)
 
-# Regex para extraer connector_id del topic
-# everest_api/evse_manager_1/var/session_info  → 1
-# everest_api/evse_manager_2/var/powermeter    → 2
-_EVSE_TOPIC_RE = re.compile(
-    r"everest_api/evse_manager_(\d+)/var/(session_info|powermeter)"
+# Regex para extraer connector_id del topic (EVerest AC Simulation real)
+# everest_api/connector_1/var/session_info  → 1
+# everest_api/connector_1/var/powermeter    → 1
+_CONNECTOR_TOPIC_RE = re.compile(
+    r"everest_api/connector_(\d+)/var/(session_info|powermeter|limits|telemetry|hardware_capabilities)"
+)
+# Telemetria avanzada
+_TELEMETRY_TOPIC_RE = re.compile(
+    r"everest-telemetry/livedata/(\d+)/(power_path_controller|power_switch)"
+)
+# Node-RED external topics
+_NODERED_STATE_RE = re.compile(
+    r"everest_external/nodered/(\d+)/state/(.*)"
 )
 _EXTERNAL_CMD_RE = re.compile(
     r"everest_external/nodered/(\d+)/(carsim|cmd)/(.*)"
@@ -118,8 +126,8 @@ class MqttBridge:
     # ──────────────────────────────────────────────────────────
 
     def _route(self, topic: str, payload: Any) -> None:
-        # ── EVSE session_info / powermeter ───────────────────
-        m = _EVSE_TOPIC_RE.match(topic)
+        # ── Connector session_info / powermeter / limits / telemetry ──
+        m = _CONNECTOR_TOPIC_RE.match(topic)
         if m:
             connector_id = int(m.group(1))
             var = m.group(2)
@@ -128,15 +136,38 @@ class MqttBridge:
                     station.on_session_info(connector_id, payload)
                 elif var == "powermeter":
                     station.on_powermeter(connector_id, payload)
+                elif var == "limits":
+                    station.on_limits(connector_id, payload)
+                elif var == "telemetry":
+                    station.on_telemetry(connector_id, payload)
+                elif var == "hardware_capabilities":
+                    station.on_hardware_capabilities(connector_id, payload)
             station.add_event(SystemEvent(
                 event_type=EventType.MQTT_EVENT,
                 severity=EventSeverity.INFO,
                 source="everest",
-                message=f"evse_manager_{connector_id} → {var}",
+                message=f"connector_{connector_id} → {var}",
                 connector_id=connector_id,
                 topic=topic,
                 payload=payload if not isinstance(payload, dict) else None,
             ))
+            return
+
+        # ── Telemetria avanzada ──────────────────────────────
+        m_telem = _TELEMETRY_TOPIC_RE.match(topic)
+        if m_telem:
+            connector_id = int(m_telem.group(1))
+            var = m_telem.group(2)
+            if isinstance(payload, dict):
+                station.on_advanced_telemetry(connector_id, var, payload)
+            return
+
+        # ── Node-RED state topics ────────────────────────────
+        m_state = _NODERED_STATE_RE.match(topic)
+        if m_state:
+            connector_id = int(m_state.group(1))
+            state_var = m_state.group(2)
+            station.on_nodered_state(connector_id, state_var, payload)
             return
 
         # ── OCPP connection_status ───────────────────────────
@@ -149,6 +180,16 @@ class MqttBridge:
                 message=f"OCPP status → {payload}",
                 topic=topic,
             ))
+            return
+
+        # ── Errores activos ──────────────────────────────────
+        if topic == "everest_api/errors/var/active_errors":
+            station.on_active_errors(payload)
+            return
+
+        # ── Lista de conectores ──────────────────────────────
+        if topic == "everest_api/connectors":
+            station.on_connectors_list(payload)
             return
 
         # ── Comandos externos (auditoría de seguridad) ───────
@@ -168,14 +209,9 @@ class MqttBridge:
             ))
             return
 
-        # ── Otros topics: loguear genérico ───────────────────
-        station.add_event(SystemEvent(
-            event_type=EventType.MQTT_EVENT,
-            severity=EventSeverity.INFO,
-            source="everest",
-            message=f"topic: {topic}",
-            topic=topic,
-        ))
+        # ── Otros topics: loguear genérico (solo si debug) ───
+        # No loguear cada mensaje para no saturar eventos
+        log.debug("Unhandled topic: %s", topic)
 
     # ──────────────────────────────────────────────────────────
     # Publicar comandos hacia EVerest

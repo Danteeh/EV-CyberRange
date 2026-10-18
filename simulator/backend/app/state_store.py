@@ -66,6 +66,9 @@ class StationState:
         # ── Escenarios de ataque activos ──────────────────────
         self.active_attacks: dict[str, AttackScenario] = {}
 
+        # ── Errores activos de EVerest ────────────────────────
+        self.active_errors: list[Any] = []
+
         # ── Metadatos del backend ─────────────────────────────
         self.started_at: str = _utc_now()
         self.updated_at: str = _utc_now()
@@ -152,7 +155,7 @@ class StationState:
                 v = raw.strip().lower()
                 if v == "connected":
                     self.ocpp_status = OcppStatus.CONNECTED
-                elif v in {"disconnected", "connection_failed", "failed"}:
+                elif v in {"disconnected", "connection_failed", "failed", "unknown"}:
                     self.ocpp_status = OcppStatus.DISCONNECTED
             elif isinstance(raw, dict):
                 val = raw.get("connected") or raw.get("is_connected")
@@ -162,6 +165,91 @@ class StationState:
                     self.ocpp_status = OcppStatus.DISCONNECTED
             elif isinstance(raw, bool):
                 self.ocpp_status = OcppStatus.CONNECTED if raw else OcppStatus.DISCONNECTED
+            self.updated_at = _utc_now()
+
+    def on_limits(self, connector_id: int, payload: dict[str, Any]) -> None:
+        """Procesa everest_api/connector_N/var/limits"""
+        with self._lock:
+            c = self.connectors.get(connector_id)
+            if c is None:
+                return
+            c.max_current_a = _safe_float(payload.get("max_current"), 32.0)
+            c.phases_available = _safe_int(payload.get("nr_of_phases_available"), 3)
+            c.updated_at = _utc_now()
+            self.updated_at = c.updated_at
+
+    def on_telemetry(self, connector_id: int, payload: dict[str, Any]) -> None:
+        """Procesa everest_api/connector_N/var/telemetry"""
+        with self._lock:
+            c = self.connectors.get(connector_id)
+            if c is None:
+                return
+            c.metrics.temperature_c = _safe_float(payload.get("temperature"), c.metrics.temperature_c)
+            c.fan_rpm = _safe_float(payload.get("fan_rpm"), 0.0)
+            c.supply_voltage_12v = _safe_float(payload.get("supply_voltage_12V"), 0.0)
+            c.updated_at = _utc_now()
+            self.updated_at = c.updated_at
+
+    def on_hardware_capabilities(self, connector_id: int, payload: dict[str, Any]) -> None:
+        """Procesa everest_api/connector_N/var/hardware_capabilities"""
+        with self._lock:
+            c = self.connectors.get(connector_id)
+            if c is None:
+                return
+            c.max_current_import_a = _safe_float(payload.get("max_current_A_import"), 32.0)
+            c.min_current_import_a = _safe_float(payload.get("min_current_A_import"), 6.0)
+            c.connector_type = payload.get("connector_type", "Unknown")
+            c.updated_at = _utc_now()
+            self.updated_at = c.updated_at
+
+    def on_advanced_telemetry(self, connector_id: int, var: str, payload: dict[str, Any]) -> None:
+        """Procesa everest-telemetry/livedata/N/power_path_controller o power_switch"""
+        with self._lock:
+            c = self.connectors.get(connector_id)
+            if c is None:
+                return
+            if var == "power_path_controller":
+                c.cp_state = payload.get("cp_state", "")
+                c.cp_pwm_duty_cycle = _safe_float(payload.get("cp_pwm_duty_cycle"), 0.0)
+            elif var == "power_switch":
+                c.relais_on = payload.get("is_on", False)
+            c.updated_at = _utc_now()
+            self.updated_at = c.updated_at
+
+    def on_nodered_state(self, connector_id: int, state_var: str, value: Any) -> None:
+        """Procesa everest_external/nodered/N/state/*"""
+        with self._lock:
+            c = self.connectors.get(connector_id)
+            if c is None:
+                return
+            if state_var == "max_current":
+                c.max_current_a = _safe_float(value, c.max_current_a)
+            elif state_var == "temperature":
+                c.metrics.temperature_c = _safe_float(value, c.metrics.temperature_c)
+            c.updated_at = _utc_now()
+            self.updated_at = c.updated_at
+
+    def on_active_errors(self, payload: Any) -> None:
+        """Procesa everest_api/errors/var/active_errors"""
+        with self._lock:
+            if isinstance(payload, list):
+                self.active_errors = payload
+            self.updated_at = _utc_now()
+
+    def on_connectors_list(self, payload: Any) -> None:
+        """Procesa everest_api/connectors"""
+        with self._lock:
+            if isinstance(payload, list):
+                # Actualizar el numero de conectores si es diferente
+                for conn_name in payload:
+                    # Extraer numero: "connector_1" -> 1
+                    if conn_name.startswith("connector_"):
+                        try:
+                            cid = int(conn_name.split("_")[1])
+                            if cid not in self.connectors:
+                                self.connectors[cid] = ConnectorStatus(connector_id=cid)
+                        except (IndexError, ValueError):
+                            pass
             self.updated_at = _utc_now()
 
     # ──────────────────────────────────────────────────────────
@@ -227,6 +315,7 @@ class StationState:
             },
             "connectors": connectors,
             "attacks": attacks,
+            "active_errors": self.active_errors,
             "recent_events": recent_events,
             "updated_at": self.updated_at,
         }

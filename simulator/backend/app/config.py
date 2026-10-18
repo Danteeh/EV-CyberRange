@@ -9,11 +9,11 @@ from __future__ import annotations
 # ──────────────────────────────────────────────────────────────
 STATION_ID = "EVCR-001"
 STATION_NAME = "EV-CyberRange Station 01"
-PROTOCOL = "OCPP 1.6J"
-NUM_CONNECTORS = 2
+PROTOCOL = "OCPP 1.6J"  # Info legacy, no usamos OCPP en MVP2
+NUM_CONNECTORS = 1      # EVerest AC sim tiene 1 conector
 
 # ──────────────────────────────────────────────────────────────
-# MQTT (Mosquitto dentro de WSL/Docker)
+# MQTT (Mosquitto via Docker)
 # ──────────────────────────────────────────────────────────────
 MQTT_HOST = "127.0.0.1"
 MQTT_PORT = 1883
@@ -21,19 +21,27 @@ MQTT_CLIENT_ID = "ev-cyberrange-backend"
 MQTT_KEEPALIVE = 30
 MQTT_RECONNECT_DELAY = 5          # segundos entre reintentos
 
-# Topics EVerest que el backend escucha
+# Topics EVerest que el backend escucha (mapeados de AC Simulation real)
 MQTT_TOPICS_SUBSCRIBE = [
-    # EVSE managers — session y powermeter
-    "everest_api/evse_manager_1/var/session_info",
-    "everest_api/evse_manager_1/var/powermeter",
-    "everest_api/evse_manager_2/var/session_info",
-    "everest_api/evse_manager_2/var/powermeter",
-    # Estado OCPP (topic exacto)
+    # Estado principal del conector
+    "everest_api/connector_1/var/session_info",
+    "everest_api/connector_1/var/powermeter",
+    "everest_api/connector_1/var/limits",
+    "everest_api/connector_1/var/telemetry",
+    "everest_api/connector_1/var/hardware_capabilities",
+    # Lista de conectores
+    "everest_api/connectors",
+    # Errores
+    "everest_api/errors/var/active_errors",
+    # Estado OCPP (aunque no usemos central system)
     "everest_api/ocpp/var/connection_status",
-    # Toda la API de EVerest (módulo API y EvAPI)
+    # Node-RED UI topics
+    "everest_external/nodered/1/state/#",
+    "everest_external/nodered/1/powermeter_json",
+    # Telemetria avanzada
+    "everest-telemetry/livedata/1/#",
+    # Wildcard para capturar todo (debug)
     "everest_api/#",
-    # Comandos externos entrantes (auditoría)
-    "everest_external/#",
 ]
 
 # Prefix para publicar comandos desde el backend

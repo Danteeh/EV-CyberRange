@@ -1,0 +1,48 @@
+version: "3.6"
+
+networks:
+  default:
+    name: everest-demo
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 2001:db8:b::/64
+          gateway: 2001:db8:b::1
+
+services:
+  mqtt-server:
+    image: ghcr.io/everest/everest-demo/mqtt-server:${TAG}
+    container_name: everest-mqtt
+    ports:
+      - "1883:1883"  # Exponer MQTT para que nuestro backend pueda conectarse
+    logging:
+      driver: none
+
+  manager:
+    image: ghcr.io/everest/everest-demo/manager:${TAG}
+    container_name: everest-manager
+    deploy:
+      resources:
+        limits:
+          cpus: "${EVEREST_MANAGER_CPUS}"
+          memory: "${EVEREST_MANAGER_MEMORY}"
+    depends_on:
+      - mqtt-server
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server
+    entrypoint: "sh /ext/build/run-scripts/run-sil.sh"
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+
+  node-red:
+    image: ghcr.io/everest/everest-demo/nodered:${TAG}
+    container_name: everest-ui
+    depends_on:
+      - mqtt-server
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server
+      - FLOWS=/config/config-sil-flow.json
+    ports:
+      - 1880:1880
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
