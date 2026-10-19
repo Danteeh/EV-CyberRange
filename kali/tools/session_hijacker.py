@@ -107,70 +107,92 @@ class SessionHijacker:
         else:
             console.print(f"[red]Connection failed: {rc}[/red]")
     
-    def _on_disconnect(self, client, userdata, rc, properties=None):
+    def _on_disconnect(self, client, userdata, disconnect_flags=None, reason_code=None, properties=None):
         self.connected = False
-        if rc != 0:
-            console.print(f"[yellow]Unexpected disconnect: {rc}[/yellow]")
+        if reason_code and reason_code != 0:
+            console.print(f"[yellow]Unexpected disconnect: {reason_code}[/yellow]")
     
-    def _on_message(self, client, userdata, msg):
+    def _on_message(self, client, userdata, msg, properties=None):
         """Process incoming MQTT messages and update session state."""
-        topic = msg.topic
-        
-        # Capture all messages for replay
-        self.captured_messages.append({
-            "topic": topic,
-            "payload": msg.payload.decode("utf-8", errors="replace"),
-            "timestamp": datetime.now().isoformat(),
-        })
-        
-        # Only keep last 1000 messages
-        if len(self.captured_messages) > 1000:
-            self.captured_messages = self.captured_messages[-1000:]
-        
         try:
-            payload = json.loads(msg.payload.decode())
-        except:
-            return
-        
-        # Parse connector ID from topic
-        connector_id = None
-        if "connector_" in topic:
-            for part in topic.split("/"):
-                if part.startswith("connector_"):
-                    try:
-                        connector_id = int(part.replace("connector_", ""))
-                    except:
-                        pass
-        
-        if connector_id is None:
-            connector_id = 1  # Default
-        
-        # Initialize session if needed
-        if connector_id not in self.sessions:
-            self.sessions[connector_id] = ChargingSession(connector_id=connector_id, state="Unknown")
-        
-        session = self.sessions[connector_id]
-        session.last_update = datetime.now()
-        
-        # Update session based on topic
-        if "session_info" in topic:
-            session.state = payload.get("state", session.state)
-            session.id_tag = payload.get("id_tag")
-            session.session_id = payload.get("session_id")
+            topic = msg.topic
+            payload_str = msg.payload.decode("utf-8", errors="replace")
             
-        elif "powermeter" in topic:
-            session.energy_wh = payload.get("energy_Wh_import", session.energy_wh)
-            session.power_w = payload.get("power_W", session.power_w)
-            session.voltage_v = payload.get("voltage_V", {}).get("L1", session.voltage_v)
-            session.current_a = payload.get("current_A", {}).get("L1", session.current_a)
+            # Capture all messages for replay
+            self.captured_messages.append({
+                "topic": topic,
+                "payload": payload_str,
+                "timestamp": datetime.now().isoformat(),
+            })
             
-        elif "limits" in topic:
-            session.max_current_a = payload.get("max_current", session.max_current_a)
+            # Only keep last 1000 messages
+            if len(self.captured_messages) > 1000:
+                self.captured_messages = self.captured_messages[-1000:]
+            
+            try:
+                payload = json.loads(payload_str)
+            except:
+                return
+            
+            # Parse connector ID from topic
+            connector_id = None
+            if "connector_" in topic:
+                for part in topic.split("/"):
+                    if part.startswith("connector_"):
+                        try:
+                            connector_id = int(part.replace("connector_", ""))
+                        except:
+                            pass
+            
+            if connector_id is None:
+                connector_id = 1  # Default
+            
+            # Initialize session if needed
+            if connector_id not in self.sessions:
+                self.sessions[connector_id] = ChargingSession(connector_id=connector_id, state="Unknown")
+            
+            session = self.sessions[connector_id]
+            session.last_update = datetime.now()
+            
+            # Update session based on topic
+            if "session_info" in topic:
+                session.state = payload.get("state", session.state)
+                session.id_tag = payload.get("id_tag")
+                session.session_id = payload.get("session_id")
+                
+            elif "powermeter" in topic:
+                session.energy_wh = payload.get("energy_Wh_import", session.energy_wh)
+                session.power_w = payload.get("power_W", session.power_w)
+                if isinstance(payload.get("voltage_V"), dict):
+                    session.voltage_v = payload.get("voltage_V", {}).get("L1", session.voltage_v)
+                if isinstance(payload.get("current_A"), dict):
+                    session.current_a = payload.get("current_A", {}).get("L1", session.current_a)
+                
+            elif "limits" in topic:
+                session.max_current_a = payload.get("max_current", session.max_current_a)
+        except Exception as e:
+            # Silently ignore message parsing errors
+            pass
     
     def monitor_sessions(self, duration: int = 60):
         """Live monitor of charging sessions."""
         console.print(f"[cyan]Monitoring charging sessions for {duration}s...[/cyan]")
         console.print("[dim]Press Ctrl+C to stop[/dim]\n")
+        
+        def safe_float(val, default=0.0):
+            """Safely convert value to float, handling dicts and other types."""
+            if isinstance(val, (int, float)):
+                return float(val)
+            if isinstance(val, dict):
+                # Try common keys
+                for key in ['L1', 'value', 'total', 'DC']:
+                    if key in val:
+                        return safe_float(val[key], default)
+                return default
+            try:
+                return float(val)
+            except:
+                return default
         
         def generate_table() -> Table:
             table = Table(title="Active Charging Sessions")
@@ -185,11 +207,11 @@ class SessionHijacker:
             for conn_id, session in sorted(self.sessions.items()):
                 table.add_row(
                     str(session.connector_id),
-                    session.state,
-                    f"{session.power_w:.0f} W",
-                    f"{session.energy_wh:.0f} Wh",
-                    f"{session.current_a:.1f} A",
-                    f"{session.max_current_a:.0f} A",
+                    str(session.state) if session.state else "Unknown",
+                    f"{safe_float(session.power_w):.0f} W",
+                    f"{safe_float(session.energy_wh):.0f} Wh",
+                    f"{safe_float(session.current_a):.1f} A",
+                    f"{safe_float(session.max_current_a, 32.0):.0f} A",
                     session.id_tag or "-",
                 )
             

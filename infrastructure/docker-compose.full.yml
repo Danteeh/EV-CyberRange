@@ -2,11 +2,11 @@
 # Complete cybersecurity lab for EV charging infrastructure
 
 services:
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   # MQTT Message Broker (Central Communication Bus)
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   mqtt:
-    image: eclipse-mosquitto:2
+    image: ghcr.io/everest/everest-demo/mqtt-server:2025.10.0-single-phase
     container_name: everest-mqtt
     hostname: mqtt
     networks:
@@ -14,23 +14,14 @@ services:
         ipv4_address: 172.28.1.10
     ports:
       - "1883:1883"
-      - "9001:9001"  # WebSocket
-    volumes:
-      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - mqtt-data:/mosquitto/data
-      - mqtt-logs:/mosquitto/log
+      - "9001:9001"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   # EVerest Manager (EVSE + EV Simulation)
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   everest-manager:
-    image: ghcr.io/everest/everest-demo/manager:2024.3.0-rc1
+    image: ghcr.io/everest/everest-demo/manager:2025.10.0-single-phase
     container_name: everest-manager
     hostname: evse
     networks:
@@ -40,15 +31,14 @@ services:
       - MQTT_SERVER_ADDRESS=mqtt
       - MQTT_SERVER_PORT=1883
     depends_on:
-      mqtt:
-        condition: service_healthy
+      - mqtt
     restart: unless-stopped
 
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   # Node-RED UI (EVSE Control Panel)
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   nodered:
-    image: ghcr.io/everest/everest-demo/nodered:2024.3.0-rc1
+    image: ghcr.io/everest/everest-demo/nodered:2025.10.0-single-phase
     container_name: everest-ui
     hostname: nodered
     networks:
@@ -60,21 +50,15 @@ services:
       - MQTT_SERVER_ADDRESS=mqtt
       - MQTT_SERVER_PORT=1883
     depends_on:
-      mqtt:
-        condition: service_healthy
+      - mqtt
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1880/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   # Backend API (FastAPI - Monitoring & Control)
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   backend:
     build:
-      context: ./simulator/backend
+      context: ../simulator/backend
       dockerfile: Dockerfile
     container_name: cyberrange-backend
     hostname: backend
@@ -88,24 +72,18 @@ services:
       - MQTT_PORT=1883
       - LOG_LEVEL=INFO
     depends_on:
-      mqtt:
-        condition: service_healthy
+      - mqtt
     volumes:
       - backend-data:/app/data
       - backend-logs:/app/logs
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   # Frontend Dashboard (React)
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   frontend:
     build:
-      context: ./simulator/frontend
+      context: ../simulator/frontend
       dockerfile: Dockerfile
     container_name: cyberrange-frontend
     hostname: frontend
@@ -118,16 +96,15 @@ services:
       - VITE_API_URL=http://localhost:8000
       - VITE_WS_URL=ws://localhost:8000/ws/realtime
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     restart: unless-stopped
 
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   # Kali Linux Attack Host (Browser-accessible via noVNC)
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   kali:
     build:
-      context: ./kali
+      context: ../kali
       dockerfile: Dockerfile
     container_name: kali-attack
     hostname: attacker
@@ -139,8 +116,8 @@ services:
       ev-cyberrange:
         ipv4_address: 172.28.3.10
     ports:
-      - "6080:6080"   # noVNC web interface
-      - "5901:5901"   # VNC direct
+      - "6080:6080"
+      - "5901:5901"
     environment:
       - MQTT_HOST=mqtt
       - MQTT_PORT=1883
@@ -153,12 +130,12 @@ services:
       - kali-captures:/root/captures
       - kali-logs:/root/logs
       - kali-evidence:/root/evidence
-      - ./kali/tools:/root/tools:ro
+      - ../kali/tools:/root/tools:ro
     restart: unless-stopped
 
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   # Packet Capture (tcpdump for forensics)
-  # ═══════════════════════════════════════════════════════════════
+  # ================================================================
   pcap:
     image: nicolaka/netshoot:latest
     container_name: packet-capture
@@ -175,9 +152,9 @@ services:
     profiles:
       - forensics
 
-# ═══════════════════════════════════════════════════════════════
+# ================================================================
 # Networks
-# ═══════════════════════════════════════════════════════════════
+# ================================================================
 networks:
   ev-cyberrange:
     name: ev-cyberrange
@@ -186,14 +163,10 @@ networks:
       config:
         - subnet: 172.28.0.0/16
 
-# ═══════════════════════════════════════════════════════════════
+# ================================================================
 # Persistent Volumes
-# ═══════════════════════════════════════════════════════════════
+# ================================================================
 volumes:
-  mqtt-data:
-    name: ev-cyberrange-mqtt-data
-  mqtt-logs:
-    name: ev-cyberrange-mqtt-logs
   backend-data:
     name: ev-cyberrange-backend-data
   backend-logs:
