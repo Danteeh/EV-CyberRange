@@ -1,0 +1,73 @@
+# EV-CyberRange - Complete Lab Stack
+# Usage: docker compose up -d
+
+networks:
+  default:
+    name: ev-cyberrange
+    driver: bridge
+
+services:
+  # ============================================
+  # EVerest Charging Station Simulator
+  # ============================================
+  mqtt:
+    image: ghcr.io/everest/everest-demo/mqtt-server:2025.10.0-single-phase
+    container_name: everest-mqtt
+    ports:
+      - "1883:1883"
+    restart: unless-stopped
+
+  everest-manager:
+    image: ghcr.io/everest/everest-demo/manager:2025.10.0-single-phase
+    container_name: everest-manager
+    depends_on:
+      - mqtt
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt
+    entrypoint: "sh /ext/build/run-scripts/run-sil.sh"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+    restart: unless-stopped
+
+  nodered:
+    image: ghcr.io/everest/everest-demo/nodered:2025.10.0-single-phase
+    container_name: everest-ui
+    depends_on:
+      - mqtt
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt
+      - FLOWS=/config/config-sil-flow.json
+    ports:
+      - "1880:1880"
+    restart: unless-stopped
+
+  # ============================================
+  # Kali Linux Attack Host (noVNC in browser)
+  # ============================================
+  kali:
+    build:
+      context: ./kali
+      dockerfile: Dockerfile
+    container_name: kali-attack
+    ports:
+      - "6080:6080"   # noVNC web interface
+      - "5901:5901"   # VNC direct
+    depends_on:
+      - mqtt
+    restart: unless-stopped
+
+  # ============================================
+  # FastAPI Backend (optional - run locally for dev)
+  # ============================================
+  # backend:
+  #   build: ./simulator/backend
+  #   container_name: evcr-backend
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - MQTT_BROKER=mqtt
+  #   depends_on:
+  #     - mqtt
