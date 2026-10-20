@@ -14,10 +14,10 @@ from typing import Optional
 
 import paho.mqtt.client as mqtt
 from ocpp.v16 import ChargePoint as CP
-from ocpp.v16 import call
+from ocpp.v16 import call, call_result
 from ocpp.v16.enums import (
     RegistrationStatus, AuthorizationStatus, ChargePointStatus,
-    ChargePointErrorCode
+    ChargePointErrorCode, Action
 )
 from ocpp.routing import on, after
 
@@ -52,29 +52,39 @@ class ChargePointSimulator(CP):
         self.voltage = 230  # V
         
     async def start(self):
-        """Start the charge point - send BootNotification first"""
-        # Send boot notification
-        response = await self.call(call.BootNotification(
-            charge_point_vendor="EV-CyberRange",
-            charge_point_model="EVCR-SIM-001",
-            charge_point_serial_number=self.id,
-            firmware_version="1.0.0"
-        ))
+        """Start the charge point - process messages and send BootNotification"""
+        # Start the message handler in background first
+        # This allows us to receive responses to our calls
+        handler_task = asyncio.create_task(super().start())
         
-        if response.status == RegistrationStatus.accepted:
-            log.info(f"[{self.id}] Registered with CSMS. Heartbeat interval: {response.interval}s")
-            self.registered = True
+        try:
+            # Send boot notification
+            response = await self.call(call.BootNotification(
+                charge_point_vendor="EV-CyberRange",
+                charge_point_model="EVCR-SIM-001",
+                charge_point_serial_number=self.id,
+                firmware_version="1.0.0"
+            ))
             
-            # Start heartbeat task
-            asyncio.create_task(self._heartbeat_loop(response.interval))
-            
-            # Send initial status
-            await self.send_status(ChargePointStatus.available)
-            
-            # Start the message handler
-            await super().start()
-        else:
-            log.error(f"[{self.id}] Registration rejected: {response.status}")
+            if response.status == RegistrationStatus.accepted:
+                log.info(f"[{self.id}] Registered with CSMS. Heartbeat interval: {response.interval}s")
+                self.registered = True
+                
+                # Start heartbeat task
+                asyncio.create_task(self._heartbeat_loop(response.interval))
+                
+                # Send initial status
+                await self.send_status(ChargePointStatus.available)
+                
+                # Wait for the handler to complete (runs forever until disconnected)
+                await handler_task
+            else:
+                log.error(f"[{self.id}] Registration rejected: {response.status}")
+                handler_task.cancel()
+        except Exception as e:
+            log.error(f"[{self.id}] Error during start: {e}")
+            handler_task.cancel()
+            raise
     
     async def _heartbeat_loop(self, interval: int):
         """Send periodic heartbeats"""
@@ -229,7 +239,7 @@ class ChargePointSimulator(CP):
     # Handle CSMS-initiated messages
     # ─────────────────────────────────────────────────────────
     
-    @on('RemoteStartTransaction')
+    @on(Action.remote_start_transaction)
     async def on_remote_start(self, id_tag: str, **kwargs):
         """CSMS requests to start charging"""
         connector_id = kwargs.get('connector_id', 1)
@@ -238,40 +248,49 @@ class ChargePointSimulator(CP):
         # Start charging in background
         asyncio.create_task(self.start_charging(id_tag, connector_id))
         
-        return call.RemoteStartTransactionPayload(status='Accepted')
+        return call_result.RemoteStartTransaction(status='Accepted')
     
-    @on('RemoteStopTransaction')
+    @on(Action.remote_stop_transaction)
     async def on_remote_stop(self, transaction_id: int):
         """CSMS requests to stop charging"""
         log.info(f"[{self.id}] Remote stop requested for transaction: {transaction_id}")
         
         if transaction_id == self.current_transaction_id:
             asyncio.create_task(self.stop_charging())
-            return call.RemoteStopTransactionPayload(status='Accepted')
+            return call_result.RemoteStopTransaction(status='Accepted')
         else:
-            return call.RemoteStopTransactionPayload(status='Rejected')
+            return call_result.RemoteStopTransaction(status='Rejected')
     
-    @on('Reset')
+    @on(Action.reset)
     async def on_reset(self, type: str):
         """CSMS requests reset"""
         log.info(f"[{self.id}] Reset requested: {type}")
         # In a real implementation, this would restart the charge point
-        return call.ResetPayload(status='Accepted')
+        return call_result.Reset(status='Accepted')
     
-    @on('UnlockConnector')
+    @on(Action.unlock_connector)
     async def on_unlock(self, connector_id: int):
         """CSMS requests to unlock connector"""
         log.info(f"[{self.id}] Unlock requested for connector {connector_id}")
-        return call.UnlockConnectorPayload(status='Unlocked')
+        return call_result.UnlockConnector(status='Unlocked')
     
-    @on('ChangeAvailability')
+    @on(Action.change_availability)
     async def on_change_availability(self, connector_id: int, type: str):
         """CSMS requests availability change"""
         log.info(f"[{self.id}] Availability change: connector {connector_id} -> {type}")
-        return call.ChangeAvailabilityPayload(status='Accepted')
+        return call_result.ChangeAvailability(status='Accepted')
     
-    @on('GetConfiguration')
+    @on(Action.get_configuration)
     async def on_get_configuration(self, **kwargs):
+        """CSMS requests configuration"""
+        keys = kwargs.get('key', [])
+        return call_result.GetConfiguration(
+            configuration_key=[
+                {"key": "HeartbeatInterval", "readonly": False, "value": "300"},
+                {"key": "MeterValueSampleInterval", "readonly": False, "value": "10"},
+                {"key": "NumberOfConnectors", "readonly": True, "value": "1"},
+            ]
+        )
         """CSMS requests configuration"""
         return call.GetConfigurationPayload(
             configuration_key=[

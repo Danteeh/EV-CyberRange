@@ -453,6 +453,133 @@ class CSMS:
 # Main
 # ============================================================
 
+# Global CSMS instance for HTTP API access
+_csms_instance: CSMS | None = None
+
+async def run_http_api(csms: CSMS, port: int = 9001):
+    """
+    Simple HTTP API for the CSMS.
+    Runs alongside the WebSocket server.
+    """
+    global _csms_instance
+    _csms_instance = csms
+    
+    from aiohttp import web
+    
+    async def get_status(request):
+        return web.json_response({
+            "status": "running",
+            "connected_charge_points": len(csms.charge_points),
+            "charge_points": list(csms.charge_points.keys())
+        })
+    
+    async def list_charge_points(request):
+        return web.json_response(csms.get_charge_points())
+    
+    async def get_charge_point(request):
+        cp_id = request.match_info['cp_id']
+        handler = csms.get_charge_point(cp_id)
+        if not handler:
+            return web.json_response({"error": "Not found"}, status=404)
+        return web.json_response({
+            "id": cp_id,
+            "vendor": handler.info.vendor,
+            "model": handler.info.model,
+            "status": handler.info.status,
+            "last_heartbeat": handler.info.last_heartbeat.isoformat() if handler.info.last_heartbeat else None,
+            "sessions": [
+                {
+                    "transaction_id": s.transaction_id,
+                    "connector_id": s.connector_id,
+                    "id_tag": s.id_tag,
+                    "start_time": s.start_time.isoformat(),
+                    "meter_start": s.meter_start
+                }
+                for s in handler.info.sessions.values()
+            ]
+        })
+    
+    async def remote_start(request):
+        try:
+            data = await request.json()
+            cp_id = data.get("charge_point_id")
+            id_tag = data.get("id_tag", "RFID-001")
+            connector_id = data.get("connector_id", 1)
+            
+            handler = csms.get_charge_point(cp_id)
+            if not handler:
+                return web.json_response({
+                    "status": "Rejected", 
+                    "error": f"Charge point {cp_id} not connected",
+                    "connected": list(csms.charge_points.keys())
+                }, status=404)
+            
+            success = await handler.remote_start_transaction(id_tag, connector_id)
+            return web.json_response({
+                "status": "Accepted" if success else "Rejected",
+                "charge_point_id": cp_id,
+                "id_tag": id_tag,
+                "connector_id": connector_id
+            })
+        except Exception as e:
+            log.error(f"remote_start error: {e}")
+            return web.json_response({"status": "Error", "error": str(e)}, status=500)
+    
+    async def remote_stop(request):
+        try:
+            data = await request.json()
+            cp_id = data.get("charge_point_id")
+            transaction_id = data.get("transaction_id")
+            
+            handler = csms.get_charge_point(cp_id)
+            if not handler:
+                return web.json_response({"status": "Rejected", "error": "Charge point not connected"}, status=404)
+            
+            success = await handler.remote_stop_transaction(transaction_id)
+            return web.json_response({
+                "status": "Accepted" if success else "Rejected",
+                "charge_point_id": cp_id,
+                "transaction_id": transaction_id
+            })
+        except Exception as e:
+            log.error(f"remote_stop error: {e}")
+            return web.json_response({"status": "Error", "error": str(e)}, status=500)
+    
+    async def reset_cp(request):
+        try:
+            data = await request.json()
+            cp_id = data.get("charge_point_id")
+            reset_type = data.get("reset_type", "Soft")
+            
+            handler = csms.get_charge_point(cp_id)
+            if not handler:
+                return web.json_response({"status": "Rejected", "error": "Charge point not connected"}, status=404)
+            
+            success = await handler.reset(reset_type)
+            return web.json_response({
+                "status": "Accepted" if success else "Rejected",
+                "charge_point_id": cp_id,
+                "reset_type": reset_type
+            })
+        except Exception as e:
+            log.error(f"reset error: {e}")
+            return web.json_response({"status": "Error", "error": str(e)}, status=500)
+    
+    app = web.Application()
+    app.router.add_get('/api/status', get_status)
+    app.router.add_get('/api/charge-points', list_charge_points)
+    app.router.add_get('/api/charge-points/{cp_id}', get_charge_point)
+    app.router.add_post('/api/remote-start', remote_start)
+    app.router.add_post('/api/remote-stop', remote_stop)
+    app.router.add_post('/api/reset', reset_cp)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    log.info(f"HTTP API running on http://0.0.0.0:{port}")
+
+
 async def main():
     csms = CSMS(host="0.0.0.0", port=9000)
     
@@ -462,7 +589,11 @@ async def main():
     
     csms.event_listeners.append(log_events)
     
-    await csms.start()
+    # Start HTTP API in parallel
+    await asyncio.gather(
+        run_http_api(csms, port=9001),
+        csms.start()
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())

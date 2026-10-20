@@ -10,6 +10,7 @@ services:
   # ============================================
   # CSMS - OCPP Central System (Python)
   # Port 9000: OCPP WebSocket
+  # Port 9001: HTTP API
   # URL: ws://csms:9000/<charge_point_id>
   # ============================================
   csms:
@@ -21,6 +22,7 @@ services:
       - ev-cyberrange
     ports:
       - "9000:9000"
+      - "9001:9001"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.connect(('localhost',9000)); s.close()"]

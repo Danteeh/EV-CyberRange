@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application
 COPY csms_server.py .
 
-# Expose OCPP WebSocket port
-EXPOSE 9000
+# Expose OCPP WebSocket port and HTTP API port
+EXPOSE 9000 9001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
