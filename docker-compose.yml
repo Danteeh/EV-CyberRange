@@ -1,18 +1,80 @@
-# EV-CyberRange - Complete Lab Stack
+# EV-CyberRange - Complete Lab Stack with OCPP
 # Usage: docker compose up -d
+# First build: docker compose up -d --build
 
 networks:
-  default:
-    name: ev-cyberrange
+  ev-cyberrange:
     driver: bridge
 
 services:
   # ============================================
+  # CSMS - OCPP Central System (Python)
+  # Port 9000: OCPP WebSocket
+  # URL: ws://csms:9000/<charge_point_id>
+  # ============================================
+  csms:
+    build:
+      context: ./csms
+      dockerfile: Dockerfile
+    container_name: evcr-csms
+    networks:
+      - ev-cyberrange
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.connect(('localhost',9000)); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ============================================
+  # Charge Point Simulator 1 (connects to CSMS via OCPP)
+  # This simulates an EVSE that talks OCPP to our CSMS
+  # ============================================
+  chargepoint-1:
+    build:
+      context: ./csms
+      dockerfile: Dockerfile.chargepoint
+    container_name: evcr-cp1
+    networks:
+      - ev-cyberrange
+    depends_on:
+      csms:
+        condition: service_healthy
+    environment:
+      - CSMS_URL=ws://evcr-csms:9000
+      - CHARGE_POINT_ID=EVCR-001
+    restart: unless-stopped
+
+  # ============================================
+  # Charge Point Simulator 2
+  # ============================================
+  chargepoint-2:
+    build:
+      context: ./csms
+      dockerfile: Dockerfile.chargepoint
+    container_name: evcr-cp2
+    networks:
+      - ev-cyberrange
+    depends_on:
+      csms:
+        condition: service_healthy
+    environment:
+      - CSMS_URL=ws://evcr-csms:9000
+      - CHARGE_POINT_ID=EVCR-002
+    restart: unless-stopped
+
+  # ============================================
   # EVerest Charging Station Simulator
+  # (Standalone - for comparison/parallel testing)
   # ============================================
   mqtt:
     image: ghcr.io/everest/everest-demo/mqtt-server:2025.10.0-single-phase
     container_name: everest-mqtt
+    networks:
+      - ev-cyberrange
     ports:
       - "1883:1883"
     restart: unless-stopped
@@ -20,6 +82,8 @@ services:
   everest-manager:
     image: ghcr.io/everest/everest-demo/manager:2025.10.0-single-phase
     container_name: everest-manager
+    networks:
+      - ev-cyberrange
     depends_on:
       - mqtt
     environment:
@@ -35,6 +99,8 @@ services:
   nodered:
     image: ghcr.io/everest/everest-demo/nodered:2025.10.0-single-phase
     container_name: everest-ui
+    networks:
+      - ev-cyberrange
     depends_on:
       - mqtt
     environment:
@@ -52,22 +118,33 @@ services:
       context: ./kali
       dockerfile: Dockerfile
     container_name: kali-attack
+    networks:
+      - ev-cyberrange
     ports:
-      - "6080:6080"   # noVNC web interface
-      - "5901:5901"   # VNC direct
+      - "6080:6080"
+      - "5901:5901"
     depends_on:
       - mqtt
+      - csms
     restart: unless-stopped
 
   # ============================================
-  # FastAPI Backend (optional - run locally for dev)
+  # FastAPI Backend
   # ============================================
-  # backend:
-  #   build: ./simulator/backend
-  #   container_name: evcr-backend
-  #   ports:
-  #     - "8000:8000"
-  #   environment:
-  #     - MQTT_BROKER=mqtt
-  #   depends_on:
-  #     - mqtt
+  backend:
+    build:
+      context: ./simulator/backend
+      dockerfile: Dockerfile
+    container_name: evcr-backend
+    networks:
+      - ev-cyberrange
+    ports:
+      - "8000:8000"
+    environment:
+      - MQTT_BROKER=mqtt
+      - MQTT_PORT=1883
+      - CSMS_WS_URL=ws://csms:9000
+    depends_on:
+      - mqtt
+      - csms
+    restart: unless-stopped

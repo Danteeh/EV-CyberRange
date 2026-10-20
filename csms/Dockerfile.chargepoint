@@ -1,0 +1,14 @@
+# EV-CyberRange Charge Point Simulator
+# OCPP 1.6J Client
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY charge_point_sim.py .
+
+CMD ["python", "-u", "charge_point_sim.py"]
