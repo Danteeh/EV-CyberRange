@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     novnc websockify \
     nmap wireshark tshark tcpdump \
     ettercap-text-only netcat-openbsd socat hping3 \
+    dsniff \
     mosquitto-clients \
     python3 python3-pip python3-venv \
     mitmproxy curl wget vim nano git jq \

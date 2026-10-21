@@ -174,3 +174,38 @@ def list_authorizations() -> dict[str, Any]:
         "note": "VULNERABLE: Any tag containing 'TEST' or 'ADMIN' is auto-accepted",
         "total": 6,
     }
+
+
+
+@router.get("/logs")
+async def get_ocpp_logs(lines: int = 100) -> dict[str, Any]:
+    """Read OCPP traffic logs from shared volume."""
+    import os
+    
+    log_path = "/shared-logs/ocpp_traffic.log"
+    
+    # In development, try local path
+    if not os.path.exists(log_path):
+        log_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared-logs", "ocpp_traffic.log")
+    
+    try:
+        if os.path.exists(log_path):
+            with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                # Read last N lines efficiently
+                all_lines = f.readlines()
+                last_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+                return {
+                    "logs": [line.strip() for line in last_lines if line.strip()],
+                    "total_lines": len(all_lines),
+                    "returned_lines": len(last_lines),
+                }
+        else:
+            return {
+                "logs": [],
+                "error": f"Log file not found: {log_path}",
+            }
+    except Exception as e:
+        return {
+            "logs": [],
+            "error": str(e),
+        }

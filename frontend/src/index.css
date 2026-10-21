@@ -1,17 +1,60 @@
 @import "tailwindcss";
 
 :root {
-  --cr-bg: #0a0e1a;
-  --cr-surface: #111827;
-  --cr-surface2: #1f2937;
-  --cr-border: #374151;
-  --cr-accent: #00d4ff;
-  --cr-accent2: #7c3aed;
-  --cr-green: #10b981;
-  --cr-yellow: #f59e0b;
-  --cr-red: #ef4444;
-  --cr-text: #f9fafb;
-  --cr-text-muted: #9ca3af;
+  /* ═══════════════════════════════════════════════════════════
+     EV-CyberRange - Professional Industrial Palette
+     Inspired by: Control rooms, SCADA systems, automotive dashboards
+     ═══════════════════════════════════════════════════════════ */
+  
+  /* Base surfaces - warm dark grays with slight blue undertone */
+  --cr-bg: #1a1d24;
+  --cr-bg-deep: #12141a;
+  --cr-surface: #22262f;
+  --cr-surface2: #2a2f3a;
+  --cr-surface3: #343a47;
+  
+  /* Borders - subtle, not harsh */
+  --cr-border: #3d4451;
+  --cr-border-light: #4a5162;
+  
+  /* Primary accent - professional teal (not neon cyan) */
+  --cr-accent: #4da6a8;
+  --cr-accent-dim: #3d8486;
+  --cr-accent-bright: #5cbdbf;
+  
+  /* Secondary accent - muted gold/amber */
+  --cr-secondary: #c9a227;
+  --cr-secondary-dim: #a68520;
+  
+  /* Status colors - desaturated, professional */
+  --cr-success: #4a9f6e;
+  --cr-success-dim: #3a7d56;
+  --cr-warning: #c9913a;
+  --cr-warning-dim: #a67830;
+  --cr-danger: #c45c5c;
+  --cr-danger-dim: #9e4a4a;
+  --cr-info: #5c8dc4;
+  
+  /* Text - warm whites and grays */
+  --cr-text: #e8eaed;
+  --cr-text-secondary: #b4b9c2;
+  --cr-text-muted: #7d8590;
+  --cr-text-dim: #5c6370;
+  
+  /* Special elements */
+  --cr-charging: #4a9f6e;
+  --cr-ev-body: #2c5282;
+  --cr-evse-body: #3d4451;
+  --cr-server: #2d3748;
+  --cr-kali: #3d2d4a;
+  
+  /* Shadows */
+  --cr-shadow: rgba(0, 0, 0, 0.3);
+  --cr-shadow-lg: rgba(0, 0, 0, 0.5);
+  
+  /* Grid */
+  --cr-grid: #262b35;
+  --cr-grid-accent: #2d3340;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,40 +62,236 @@
 body {
   background: var(--cr-bg);
   color: var(--cr-text);
-  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   overflow: hidden;
   height: 100vh;
 }
 
 #root { height: 100vh; display: flex; flex-direction: column; }
 
-::-webkit-scrollbar { width: 6px; }
+/* Scrollbars */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--cr-surface); }
-::-webkit-scrollbar-thumb { background: var(--cr-border); border-radius: 3px; }
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+::-webkit-scrollbar-thumb { 
+  background: var(--cr-border); 
+  border-radius: 4px;
+  border: 2px solid var(--cr-surface);
 }
-@keyframes flow-dash {
-  0% { stroke-dashoffset: 40; }
+::-webkit-scrollbar-thumb:hover { background: var(--cr-border-light); }
+
+/* ═══════════════════════════════════════════════════════════
+   Animations - subtle, professional
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes flow-energy {
+  0% { stroke-dashoffset: 24; }
   100% { stroke-dashoffset: 0; }
 }
-@keyframes charge-glow {
-  0%, 100% { filter: drop-shadow(0 0 4px var(--cr-green)); }
-  50% { filter: drop-shadow(0 0 16px var(--cr-green)); }
-}
-@keyframes attack-glow {
-  0%, 100% { filter: drop-shadow(0 0 6px var(--cr-red)); }
-  50% { filter: drop-shadow(0 0 22px var(--cr-red)); }
-}
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+
+@keyframes glow-charging {
+  0%, 100% { filter: drop-shadow(0 0 3px var(--cr-success)); }
+  50% { filter: drop-shadow(0 0 8px var(--cr-success)); }
 }
 
-.anim-pulse-dot  { animation: pulse-dot 1.5s ease-in-out infinite; }
-.anim-charge     { animation: charge-glow 2s ease-in-out infinite; }
-.anim-attack     { animation: attack-glow 0.8s ease-in-out infinite; }
-.anim-fade-in    { animation: fade-in 0.2s ease-out both; }
-.anim-flow       { animation: flow-dash 0.8s linear infinite; stroke-dasharray: 8 4; }
+@keyframes glow-attack {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--cr-danger)); }
+  50% { filter: drop-shadow(0 0 12px var(--cr-danger)); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.anim-pulse { animation: pulse-subtle 2s ease-in-out infinite; }
+.anim-charging { animation: glow-charging 2.5s ease-in-out infinite; }
+.anim-attack { animation: glow-attack 1s ease-in-out infinite; }
+.anim-slide-up { animation: slide-up 0.2s ease-out both; }
+.anim-spin { animation: spin 1s linear infinite; }
+.anim-flow { 
+  animation: flow-energy 1s linear infinite; 
+  stroke-dasharray: 8 8; 
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Components
+   ═══════════════════════════════════════════════════════════ */
+
+.panel {
+  background: var(--cr-surface);
+  border: 1px solid var(--cr-border);
+  border-radius: 8px;
+}
+
+.panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--cr-border);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--cr-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.btn-primary {
+  background: var(--cr-accent);
+  color: var(--cr-bg);
+}
+.btn-primary:hover {
+  background: var(--cr-accent-bright);
+}
+
+.btn-secondary {
+  background: var(--cr-surface2);
+  border-color: var(--cr-border);
+  color: var(--cr-text);
+}
+.btn-secondary:hover {
+  background: var(--cr-surface3);
+  border-color: var(--cr-border-light);
+}
+
+.btn-danger {
+  background: var(--cr-danger);
+  color: white;
+}
+.btn-danger:hover {
+  background: var(--cr-danger-dim);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-success {
+  background: rgba(74, 159, 110, 0.15);
+  color: var(--cr-success);
+  border: 1px solid rgba(74, 159, 110, 0.3);
+}
+
+.badge-warning {
+  background: rgba(201, 145, 58, 0.15);
+  color: var(--cr-warning);
+  border: 1px solid rgba(201, 145, 58, 0.3);
+}
+
+.badge-danger {
+  background: rgba(196, 92, 92, 0.15);
+  color: var(--cr-danger);
+  border: 1px solid rgba(196, 92, 92, 0.3);
+}
+
+.badge-info {
+  background: rgba(92, 141, 196, 0.15);
+  color: var(--cr-info);
+  border: 1px solid rgba(92, 141, 196, 0.3);
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--cr-border);
+}
+
+.tab {
+  padding: 10px 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--cr-text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab:hover {
+  color: var(--cr-text-secondary);
+  background: var(--cr-surface2);
+}
+
+.tab.active {
+  color: var(--cr-accent);
+  border-bottom-color: var(--cr-accent);
+}
+
+/* Embedded frames (Kali, Node-RED) */
+.embed-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 6px;
+  background: var(--cr-bg-deep);
+}
+
+/* Status indicators */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.online { background: var(--cr-success); }
+.status-dot.offline { background: var(--cr-danger); }
+.status-dot.warning { background: var(--cr-warning); }
+
+/* React Flow customization */
+.react-flow__node {
+  cursor: grab;
+}
+
+.react-flow__node:active {
+  cursor: grabbing;
+}
+
+.react-flow__background {
+  background: var(--cr-bg-deep) !important;
+}
+
+.react-flow__minimap {
+  background: var(--cr-surface) !important;
+  border: 1px solid var(--cr-border) !important;
+  border-radius: 6px !important;
+}
+
+.react-flow__controls {
+  background: var(--cr-surface) !important;
+  border: 1px solid var(--cr-border) !important;
+  border-radius: 6px !important;
+}
+
+.react-flow__controls-button {
+  background: var(--cr-surface2) !important;
+  border-bottom-color: var(--cr-border) !important;
+  fill: var(--cr-text-muted) !important;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--cr-surface3) !important;
+}

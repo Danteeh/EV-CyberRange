@@ -43,6 +43,25 @@ logging.basicConfig(
 )
 log = logging.getLogger('CSMS')
 
+# Enable OCPP message logging to shared file for Wireshark-style capture
+ocpp_logger = logging.getLogger('ocpp')
+ocpp_logger.setLevel(logging.DEBUG)
+
+# File handler for raw OCPP messages (readable from Kali)
+import os
+OCPP_LOG_PATH = os.environ.get('OCPP_LOG_PATH', '/shared-logs/ocpp_traffic.log')
+try:
+    os.makedirs(os.path.dirname(OCPP_LOG_PATH), exist_ok=True)
+    ocpp_file_handler = logging.FileHandler(OCPP_LOG_PATH, mode='a')
+    ocpp_file_handler.setLevel(logging.DEBUG)
+    ocpp_file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s | %(message)s'
+    ))
+    ocpp_logger.addHandler(ocpp_file_handler)
+    log.info(f"OCPP traffic logging enabled: {OCPP_LOG_PATH}")
+except Exception as e:
+    log.warning(f"Could not setup OCPP traffic log: {e}")
+
 # ============================================================
 # Data Models
 # ============================================================

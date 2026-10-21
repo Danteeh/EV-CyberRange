@@ -129,3 +129,5 @@ credentials.json
 # !simulator/backend/
 # !simulator/backend/**
 # !README.md
+
+shared-logs/

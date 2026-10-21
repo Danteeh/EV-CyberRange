@@ -3,21 +3,30 @@
     Start the EV-CyberRange Laboratory
 
 .DESCRIPTION
-    Starts all lab components: EVerest (EVSE simulator), MQTT, Node-RED UI, and Kali Linux attack host.
+    Starts all lab components: CSMS, Charge Points, Backend API, EVerest, MQTT, Node-RED, Kali Linux, and Frontend.
+
+.PARAMETER Full
+    Include additional Charge Points (3-6) with multiple connectors and DC fast chargers
 
 .PARAMETER NoKali
-    Skip Kali Linux (faster startup, ~2 min vs ~5 min first time)
+    Skip Kali Linux (faster startup)
+
+.PARAMETER Build
+    Force rebuild of containers (usually not needed)
 
 .EXAMPLE
-    .\start.ps1
-    .\start.ps1 -NoKali
+    .\start.ps1           # Standard lab (2 CPs)
+    .\start.ps1 -Full     # Full lab (6 CPs including DC fast chargers)
+    .\start.ps1 -NoKali   # Without Kali attack host
 #>
 
 param(
-    [switch]$NoKali
+    [switch]$Full,
+    [switch]$NoKali,
+    [switch]$Build
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 Write-Host ""
 Write-Host "  ______     __     ______     __  __     ______     ______     ______     __   __     ______     ______    " -ForegroundColor Cyan
@@ -27,6 +36,7 @@ Write-Host "  \ \_____\  \ \_\  \ \_____\  \/\_____\  \ \_\ \_\  \ \_\ \_\  \ \_
 Write-Host "   \/_____/   \/_/   \/_____/   \/_____/   \/_/ /_/   \/_/\/_/   \/_____/   \/_/ \/_/   \/_____/   \/_____/ " -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  EV Charging Infrastructure Security Lab" -ForegroundColor Yellow
+Write-Host "  OCPP 1.6 | EVerest | Cybersecurity Training" -ForegroundColor DarkGray
 Write-Host ""
 
 # Check Docker
@@ -46,67 +56,105 @@ $ProjectRoot = $PSScriptRoot
 if (-not $ProjectRoot) { $ProjectRoot = Get-Location }
 Set-Location $ProjectRoot
 
-# Determine services
-if ($NoKali) {
-    Write-Host "[*] Starting lab WITHOUT Kali (use -NoKali:$false for full lab)" -ForegroundColor Yellow
-    $services = "mqtt", "everest-manager", "nodered"
-} else {
-    Write-Host "[*] Starting full lab (first run builds Kali ~5 min)" -ForegroundColor Yellow
-    $services = $null  # All services
+# Create shared-logs directory if not exists
+if (-not (Test-Path "shared-logs")) {
+    New-Item -ItemType Directory -Path "shared-logs" | Out-Null
 }
 
-# Pull/build and start
-Write-Host "[*] Starting containers..." -ForegroundColor Gray
-if ($services) {
-    docker compose up -d $services
-} else {
-    docker compose up -d
+# Build containers only if explicitly requested
+if ($Build) {
+    Write-Host "[*] Building containers (this may take a while)..." -ForegroundColor Yellow
+    docker compose build 2>&1 | Out-Null
 }
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "    ERROR: Failed to start containers" -ForegroundColor Red
-    Write-Host "    Check: docker compose logs" -ForegroundColor Yellow
-    exit 1
-}
+# Start core services first
+Write-Host "[*] Starting core services (MQTT, CSMS, Backend)..." -ForegroundColor Gray
+$null = docker compose up -d mqtt csms backend 2>&1
 
-# Wait for services
-Write-Host "[*] Waiting for services to initialize..." -ForegroundColor Gray
-$timeout = 60
+# Wait for CSMS to be healthy
+Write-Host "[*] Waiting for CSMS to be healthy..." -ForegroundColor Gray
+$timeout = 30
 $start = Get-Date
-
 while (((Get-Date) - $start).TotalSeconds -lt $timeout) {
-    Start-Sleep -Seconds 3
-    
-    $mqttOk = (Test-NetConnection -ComputerName localhost -Port 1883 -WarningAction SilentlyContinue).TcpTestSucceeded
-    $noderedOk = (Test-NetConnection -ComputerName localhost -Port 1880 -WarningAction SilentlyContinue).TcpTestSucceeded
-    
-    if ($mqttOk -and $noderedOk) { break }
-    Write-Host "    Waiting... (MQTT: $mqttOk, Node-RED: $noderedOk)" -ForegroundColor Gray
+    $csmsHealth = docker inspect --format='{{.State.Health.Status}}' evcr-csms 2>$null
+    if ($csmsHealth -eq "healthy") { break }
+    Start-Sleep -Seconds 2
 }
 
-# Status
+# Start Charge Points
+Write-Host "[*] Starting Charge Points..." -ForegroundColor Gray
+$null = docker compose up -d chargepoint-1 chargepoint-2 2>&1
+
+if ($Full) {
+    Write-Host "[*] Starting additional Charge Points (3-6)..." -ForegroundColor Gray
+    $null = docker compose --profile full up -d chargepoint-3 chargepoint-4 chargepoint-5 chargepoint-6 2>&1
+}
+
+# Start EVerest stack
+Write-Host "[*] Starting EVerest stack..." -ForegroundColor Gray
+$null = docker compose up -d everest-manager nodered 2>&1
+
+# Start Kali if not skipped
+if (-not $NoKali) {
+    Write-Host "[*] Starting Kali attack host..." -ForegroundColor Yellow
+    $null = docker compose up -d kali 2>&1
+}
+
+# Wait for all services
+Write-Host "[*] Waiting for services to initialize..." -ForegroundColor Gray
+Start-Sleep -Seconds 5
+
+# Check for frontend dev server or start it
+$frontendRunning = $false
+try {
+    $response = Invoke-WebRequest -Uri "http://localhost:5173" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
+    if ($response.StatusCode -eq 200) { $frontendRunning = $true }
+} catch {}
+
+if (-not $frontendRunning) {
+    Write-Host "[*] Starting Frontend dev server..." -ForegroundColor Gray
+    Start-Process -FilePath "cmd" -ArgumentList "/c", "cd /d $ProjectRoot\frontend && npm run dev" -WindowStyle Minimized
+    Start-Sleep -Seconds 5
+}
+
+# Status check
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "  LAB STATUS" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Cyan
-
-$mqttOk = (Test-NetConnection -ComputerName localhost -Port 1883 -WarningAction SilentlyContinue).TcpTestSucceeded
-$noderedOk = (Test-NetConnection -ComputerName localhost -Port 1880 -WarningAction SilentlyContinue).TcpTestSucceeded
-$kaliOk = (Test-NetConnection -ComputerName localhost -Port 6080 -WarningAction SilentlyContinue).TcpTestSucceeded
-
 Write-Host ""
-$mqttStatus = if ($mqttOk) { "OK" } else { "FAILED" }
-$mqttColor = if ($mqttOk) { "Green" } else { "Red" }
-Write-Host "  MQTT Broker (1883):      $mqttStatus" -ForegroundColor $mqttColor
 
-$noderedStatus = if ($noderedOk) { "OK" } else { "FAILED" }
-$noderedColor = if ($noderedOk) { "Green" } else { "Red" }
-Write-Host "  Node-RED UI (1880):      $noderedStatus" -ForegroundColor $noderedColor
+# Check all services
+$services = @{
+    "MQTT Broker" = @{Port=1883; Color="Green"}
+    "CSMS WebSocket" = @{Port=9000; Color="Green"}
+    "CSMS REST API" = @{Port=9001; Color="Green"}
+    "Backend API" = @{Port=8000; Color="Green"}
+    "Node-RED (EVerest UI)" = @{Port=1880; Color="Green"}
+    "Frontend" = @{Port=5173; Color="Cyan"}
+}
 
 if (-not $NoKali) {
-    $kaliStatus = if ($kaliOk) { "OK" } else { "STARTING..." }
-    $kaliColor = if ($kaliOk) { "Green" } else { "Yellow" }
-    Write-Host "  Kali Attack Host (6080): $kaliStatus" -ForegroundColor $kaliColor
+    $services["Kali noVNC"] = @{Port=6080; Color="Red"}
+}
+
+foreach ($svc in $services.GetEnumerator()) {
+    $ok = (Test-NetConnection -ComputerName localhost -Port $svc.Value.Port -WarningAction SilentlyContinue).TcpTestSucceeded
+    $status = if ($ok) { "OK" } else { "STARTING..." }
+    $color = if ($ok) { $svc.Value.Color } else { "Yellow" }
+    $portStr = "($($svc.Value.Port))".PadRight(7)
+    Write-Host "  $($svc.Key.PadRight(22)) $portStr $status" -ForegroundColor $color
+}
+
+# Count connected charge points
+try {
+    $cpData = Invoke-RestMethod -Uri "http://localhost:8000/api/ocpp/charge-points" -TimeoutSec 3 -ErrorAction SilentlyContinue
+    $cpCount = $cpData.total
+    Write-Host ""
+    Write-Host "  Charge Points Connected: $cpCount" -ForegroundColor Green
+} catch {
+    Write-Host ""
+    Write-Host "  Charge Points: Connecting..." -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -114,27 +162,25 @@ Write-Host "==========================================================" -Foregro
 Write-Host "  ACCESS URLS" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  EVSE Control Panel:  " -NoNewline; Write-Host "http://localhost:1880/ui" -ForegroundColor Cyan
-Write-Host "  Node-RED Editor:     " -NoNewline; Write-Host "http://localhost:1880" -ForegroundColor Cyan
+Write-Host "  Main Dashboard:      " -NoNewline; Write-Host "http://localhost:5173" -ForegroundColor Cyan
+Write-Host "  Backend API:         " -NoNewline; Write-Host "http://localhost:8000/docs" -ForegroundColor Green
+Write-Host "  CSMS API:            " -NoNewline; Write-Host "http://localhost:9001" -ForegroundColor Green
+Write-Host "  Node-RED (EVerest):  " -NoNewline; Write-Host "http://localhost:1880" -ForegroundColor Green
 if (-not $NoKali) {
     Write-Host "  Kali Linux (noVNC):  " -NoNewline; Write-Host "http://localhost:6080/vnc.html" -ForegroundColor Red
 }
+
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  QUICK START" -ForegroundColor White
+Write-Host "  QUICK COMMANDS" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  1. Open EVSE Control Panel and click 'Plug In'" -ForegroundColor White
-Write-Host "  2. Open Kali Linux and run attack tools:" -ForegroundColor White
+Write-Host "  Start charging:  " -NoNewline
+Write-Host 'curl -X POST http://localhost:8000/api/ocpp/remote-start -H "Content-Type: application/json" -d "{\"charge_point_id\":\"EVCR-001\"}"' -ForegroundColor Yellow
 Write-Host ""
-Write-Host "     # Scan for EVSE vulnerabilities" -ForegroundColor Gray
-Write-Host "     /opt/attack-tools/bin/python3 /root/tools/evse_scanner.py --mqtt-host everest-mqtt --deep" -ForegroundColor Yellow
+Write-Host "  View OCPP logs:  " -NoNewline
+Write-Host "Get-Content .\shared-logs\ocpp_traffic.log -Tail 20" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "     # Monitor charging sessions" -ForegroundColor Gray
-Write-Host "     /opt/attack-tools/bin/python3 /root/tools/session_hijacker.py --target everest-mqtt --mode monitor" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  Stop lab:  docker compose down" -ForegroundColor DarkGray
-Write-Host "  View logs: docker compose logs -f" -ForegroundColor DarkGray
+Write-Host "  Stop lab:        " -NoNewline
+Write-Host "docker compose down" -ForegroundColor DarkGray
 Write-Host ""
