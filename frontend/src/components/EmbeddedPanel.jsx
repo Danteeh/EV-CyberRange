@@ -3,7 +3,7 @@ import { RefreshCw, ExternalLink, Download } from 'lucide-react'
 
 const EMBED_URLS = {
   kali: 'http://localhost:6080/vnc.html?autoconnect=true&resize=scale',
-  nodered: 'http://localhost:1880',
+  nodered: 'http://localhost:1880/ui',
 }
 
 export default function EmbeddedPanel({ type }) {

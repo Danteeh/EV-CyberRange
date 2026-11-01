@@ -19,18 +19,18 @@ const LAYOUTS = {
 
 // Embedded panel options
 const EMBED_OPTIONS = [
-  { id: 'kali', label: 'Kali Linux', icon: Terminal, url: 'http://localhost:6080/vnc.html?autoconnect=true&resize=scale' },
-  { id: 'nodered', label: 'Node-RED', icon: Radio, url: 'http://localhost:1880' },
-  { id: 'logs', label: 'OCPP Traffic', icon: Activity, url: null }, // Custom component
+  { id: 'kali', label: 'Kali Linux', icon: Terminal },
+  { id: 'nodered', label: 'EVerest', icon: Radio },
+  { id: 'logs', label: 'OCPP Logs', icon: Activity },
 ]
 
 export default function App() {
-  const { connectWS, wsConnected, connectivity } = useStore()
+  const { startPolling, connectivity } = useStore()
   const [layout, setLayout] = useState(LAYOUTS.topology)
   const [activeEmbed, setActiveEmbed] = useState(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  useEffect(() => { connectWS() }, [])
+  useEffect(() => { startPolling() }, [])
 
   const handleEmbedSelect = (embedId) => {
     if (activeEmbed === embedId) {
@@ -61,16 +61,16 @@ export default function App() {
 
         <div className="header-status">
           <StatusIndicator 
-            label="WebSocket" 
-            status={wsConnected ? 'online' : 'offline'} 
+            label="Backend" 
+            status={connectivity?.backend ? 'online' : 'offline'} 
           />
           <StatusIndicator 
-            label="MQTT" 
-            status={connectivity?.mqtt ? 'online' : 'offline'} 
+            label="CSMS" 
+            status={connectivity?.csms ? 'online' : 'offline'} 
           />
           <StatusIndicator 
-            label="OCPP" 
-            status={connectivity?.ocpp === 'CONNECTED' ? 'online' : 'offline'} 
+            label="Node-RED" 
+            status={connectivity?.nodered ? 'online' : 'offline'} 
           />
         </div>
 

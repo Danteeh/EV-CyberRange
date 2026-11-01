@@ -1,31 +1,101 @@
-import { useState } from 'react'
-import { useStore } from '../store'
+import { useState, useEffect } from 'react'
 import { 
   Car, Zap, Server, Play, Square, RefreshCw, 
-  Plus, Trash2, Settings, Shield, Activity,
-  ChevronDown, ChevronRight, AlertTriangle
+  Plus, Settings, Activity, Terminal, ExternalLink,
+  ChevronDown, ChevronRight, Loader2, Shield, ShieldAlert,
+  AlertTriangle, Skull
 } from 'lucide-react'
 
+// Standard components
 const COMPONENT_TYPES = [
   { id: 'ev', label: 'Electric Vehicle', icon: Car, color: 'var(--cr-ev-body)' },
   { id: 'evse', label: 'Charge Point (EVSE)', icon: Zap, color: 'var(--cr-accent)' },
   { id: 'csms', label: 'CSMS Server', icon: Server, color: 'var(--cr-server)' },
 ]
 
+// Vulnerable Charge Points for attack practice
+const VULNERABLE_CP_TYPES = [
+  { 
+    id: 'hardy_barth', 
+    label: 'Hardy Barth eCharge', 
+    vendor: 'Hardy Barth',
+    model: 'eCharge Salia',
+    icon: ShieldAlert, 
+    color: '#dc2626',
+    port: 8081,
+    cves: ['CVE-2024-11665', 'CVE-2024-11666'],
+    vulns: ['RCE via PHP', 'MQTT without SSL'],
+    difficulty: 'Easy'
+  },
+  { 
+    id: 'schneider', 
+    label: 'Schneider EVlink', 
+    vendor: 'Schneider Electric',
+    model: 'EVlink',
+    icon: ShieldAlert, 
+    color: '#dc2626',
+    port: 8082,
+    cves: ['CVE-2018-7800', 'CVE-2018-7801'],
+    vulns: ['Code injection', 'Command execution'],
+    difficulty: 'Medium'
+  },
+  { 
+    id: 'wallbox', 
+    label: 'Wallbox Pulsar', 
+    vendor: 'Wallbox',
+    model: 'Pulsar Plus',
+    icon: ShieldAlert, 
+    color: '#f59e0b',
+    port: 8083,
+    cves: ['CVE-2023-32249'],
+    vulns: ['Unauthenticated API', 'No encryption'],
+    difficulty: 'Easy'
+  },
+  { 
+    id: 'chargepoint', 
+    label: 'ChargePoint Flex', 
+    vendor: 'ChargePoint',
+    model: 'Home Flex',
+    icon: Skull, 
+    color: '#dc2626',
+    port: 8084,
+    cves: ['CVE-2022-26132'],
+    vulns: ['Stack buffer overflow', 'DoS'],
+    difficulty: 'Medium'
+  },
+  { 
+    id: 'generic_web', 
+    label: 'Generic WebConnect', 
+    vendor: 'Generic EV',
+    model: 'WebConnect Pro',
+    icon: AlertTriangle, 
+    color: '#f59e0b',
+    port: 8085,
+    cves: ['CVE-2024-43659'],
+    vulns: ['Exposed credentials', 'Weak auth'],
+    difficulty: 'Easy'
+  },
+  { 
+    id: 'iso15118', 
+    label: 'ISO 15118 Gateway', 
+    vendor: 'ISO15118',
+    model: 'PnC Gateway',
+    icon: ShieldAlert, 
+    color: '#7c3aed',
+    port: 8086,
+    cves: ['CVE-2025-12357'],
+    vulns: ['MitM attack', 'No cert verification'],
+    difficulty: 'Hard'
+  },
+]
+
 export default function Sidebar() {
-  const [activeSection, setActiveSection] = useState('components')
+  const [activeSection, setActiveSection] = useState('control')
 
   return (
     <div className="sidebar-content">
       {/* Section tabs */}
       <div className="sidebar-tabs">
-        <button 
-          className={`sidebar-tab ${activeSection === 'components' ? 'active' : ''}`}
-          onClick={() => setActiveSection('components')}
-        >
-          <Plus size={14} />
-          Components
-        </button>
         <button 
           className={`sidebar-tab ${activeSection === 'control' ? 'active' : ''}`}
           onClick={() => setActiveSection('control')}
@@ -34,18 +104,17 @@ export default function Sidebar() {
           Control
         </button>
         <button 
-          className={`sidebar-tab ${activeSection === 'attacks' ? 'active' : ''}`}
-          onClick={() => setActiveSection('attacks')}
+          className={`sidebar-tab ${activeSection === 'components' ? 'active' : ''}`}
+          onClick={() => setActiveSection('components')}
         >
-          <Shield size={14} />
-          Attacks
+          <Plus size={14} />
+          Add
         </button>
       </div>
 
       <div className="sidebar-body">
         {activeSection === 'components' && <ComponentsSection />}
         {activeSection === 'control' && <ControlSection />}
-        {activeSection === 'attacks' && <AttacksSection />}
       </div>
 
       <style>{`
@@ -99,9 +168,15 @@ function ComponentsSection() {
     e.dataTransfer.effectAllowed = 'copy'
   }
 
+  const handleVulnDragStart = (e, vulnCp) => {
+    e.dataTransfer.setData('componentType', 'vulnerable_evse')
+    e.dataTransfer.setData('vulnCpData', JSON.stringify(vulnCp))
+    e.dataTransfer.effectAllowed = 'copy'
+  }
+
   return (
     <div>
-      <div className="section-title">Drag to Canvas</div>
+      <div className="section-title">Standard Components</div>
       <div className="component-list">
         {COMPONENT_TYPES.map(comp => (
           <div
@@ -120,20 +195,56 @@ function ComponentsSection() {
 
       <div className="section-divider" />
 
-      <div className="section-title">Quick Actions</div>
-      <div className="quick-actions">
-        <button className="action-btn">
-          <Play size={14} />
-          Start All
-        </button>
-        <button className="action-btn">
-          <Square size={14} />
-          Stop All
-        </button>
-        <button className="action-btn">
-          <RefreshCw size={14} />
-          Reset Topology
-        </button>
+      <div className="section-title">
+        <ShieldAlert size={12} style={{ marginRight: 4 }} />
+        Vulnerable Targets (CVE Lab)
+      </div>
+      <div className="vuln-component-list">
+        {VULNERABLE_CP_TYPES.map(comp => (
+          <div
+            key={comp.id}
+            className="vuln-draggable-component"
+            draggable
+            onDragStart={(e) => handleVulnDragStart(e, comp)}
+            title={`Port: ${comp.port}\nCVEs: ${comp.cves.join(', ')}`}
+          >
+            <div className="vuln-header">
+              <div className="vuln-icon" style={{ background: comp.color }}>
+                <comp.icon size={14} />
+              </div>
+              <div className="vuln-info">
+                <span className="vuln-label">{comp.label}</span>
+                <span className="vuln-cves">{comp.cves.join(', ')}</span>
+              </div>
+              <span className={`vuln-difficulty ${comp.difficulty.toLowerCase()}`}>
+                {comp.difficulty}
+              </span>
+            </div>
+            <div className="vuln-tags">
+              {comp.vulns.map((v, i) => (
+                <span key={i} className="vuln-tag">{v}</span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="section-divider" />
+
+      <div className="section-title">Quick Links</div>
+      <div className="quick-links">
+        {VULNERABLE_CP_TYPES.map(comp => (
+          <a 
+            key={comp.id}
+            href={`http://localhost:${comp.port}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="quick-link"
+          >
+            <ExternalLink size={12} />
+            {comp.vendor} :{comp.port}
+          </a>
+        ))}
       </div>
 
       <style>{`
@@ -144,6 +255,8 @@ function ComponentsSection() {
           letter-spacing: 0.08em;
           color: var(--cr-text-muted);
           margin-bottom: 12px;
+          display: flex;
+          align-items: center;
         }
         .section-divider {
           height: 1px;
@@ -187,6 +300,120 @@ function ComponentsSection() {
           font-size: 0.8125rem;
           color: var(--cr-text);
         }
+
+        /* Vulnerable components */
+        .vuln-component-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .vuln-draggable-component {
+          padding: 10px;
+          background: var(--cr-surface2);
+          border: 1px solid rgba(220, 38, 38, 0.3);
+          border-radius: 6px;
+          cursor: grab;
+          transition: all 0.15s;
+        }
+        .vuln-draggable-component:hover {
+          background: rgba(220, 38, 38, 0.1);
+          border-color: rgba(220, 38, 38, 0.5);
+          transform: translateX(4px);
+        }
+        .vuln-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+        .vuln-icon {
+          width: 24px;
+          height: 24px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          flex-shrink: 0;
+        }
+        .vuln-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .vuln-label {
+          display: block;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--cr-text);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .vuln-cves {
+          display: block;
+          font-size: 0.625rem;
+          color: #dc2626;
+          font-family: monospace;
+        }
+        .vuln-difficulty {
+          font-size: 0.5625rem;
+          font-weight: 600;
+          padding: 2px 6px;
+          border-radius: 3px;
+          text-transform: uppercase;
+          flex-shrink: 0;
+        }
+        .vuln-difficulty.easy {
+          background: rgba(34, 197, 94, 0.2);
+          color: #22c55e;
+        }
+        .vuln-difficulty.medium {
+          background: rgba(245, 158, 11, 0.2);
+          color: #f59e0b;
+        }
+        .vuln-difficulty.hard {
+          background: rgba(124, 58, 237, 0.2);
+          color: #7c3aed;
+        }
+        .vuln-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+        .vuln-tag {
+          font-size: 0.5625rem;
+          padding: 2px 6px;
+          background: var(--cr-surface3);
+          border-radius: 3px;
+          color: var(--cr-text-muted);
+        }
+
+        /* Quick links */
+        .quick-links {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .quick-link {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 8px;
+          background: var(--cr-surface2);
+          border: 1px solid var(--cr-border);
+          border-radius: 4px;
+          color: var(--cr-text-secondary);
+          text-decoration: none;
+          font-size: 0.6875rem;
+          font-family: monospace;
+          transition: all 0.15s;
+        }
+        .quick-link:hover {
+          background: var(--cr-surface3);
+          color: var(--cr-accent);
+          border-color: var(--cr-accent);
+        }
+
         .quick-actions {
           display: flex;
           flex-direction: column;
@@ -215,103 +442,300 @@ function ComponentsSection() {
 }
 
 function ControlSection() {
-  const { connectors, sendControl } = useStore()
-  const [selectedCP, setSelectedCP] = useState('EVCR-001')
+  const [chargePoints, setChargePoints] = useState([])
+  const [selectedCP, setSelectedCP] = useState('')
+  const [selectedConnector, setSelectedConnector] = useState(1)
+  const [idTag, setIdTag] = useState('TEST-USER')
+  const [loading, setLoading] = useState(false)
+  const [lastResult, setLastResult] = useState(null)
+  const [expanded, setExpanded] = useState({})
+
+  // Fetch charge points from backend
+  useEffect(() => {
+    fetchChargePoints()
+    const interval = setInterval(fetchChargePoints, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const fetchChargePoints = async () => {
+    try {
+      const res = await fetch('/api/ocpp/charge-points')
+      if (res.ok) {
+        const data = await res.json()
+        setChargePoints(data.charge_points || [])
+        if (!selectedCP && data.charge_points?.length > 0) {
+          setSelectedCP(data.charge_points[0].id)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch charge points:', e)
+    }
+  }
 
   const handleRemoteStart = async () => {
+    if (!selectedCP) return
+    setLoading(true)
+    setLastResult(null)
     try {
       const res = await fetch('/api/ocpp/remote-start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           charge_point_id: selectedCP,
-          id_tag: 'FRONTEND-USER',
-          connector_id: 1
+          id_tag: idTag,
+          connector_id: selectedConnector
         })
       })
       const data = await res.json()
-      console.log('RemoteStart:', data)
+      setLastResult({ 
+        type: data.status === 'Accepted' ? 'success' : 'error', 
+        message: `RemoteStart: ${data.status}` 
+      })
+      // Refresh status
+      setTimeout(fetchChargePoints, 1000)
     } catch (e) {
-      console.error('RemoteStart failed:', e)
+      setLastResult({ type: 'error', message: `Error: ${e.message}` })
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleRemoteStop = async () => {
+    if (!selectedCP) return
+    setLoading(true)
+    setLastResult(null)
     try {
       const res = await fetch('/api/ocpp/remote-stop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          charge_point_id: selectedCP,
-          transaction_id: 1001
+          charge_point_id: selectedCP
+          // No transaction_id - CSMS will find the active one
         })
       })
       const data = await res.json()
-      console.log('RemoteStop:', data)
+      setLastResult({ 
+        type: data.status === 'Accepted' ? 'success' : 'error', 
+        message: `RemoteStop: ${data.status}` 
+      })
+      setTimeout(fetchChargePoints, 1000)
     } catch (e) {
-      console.error('RemoteStop failed:', e)
+      setLastResult({ type: 'error', message: `Error: ${e.message}` })
+    } finally {
+      setLoading(false)
     }
+  }
+
+  const toggleExpand = (cpId) => {
+    setExpanded(prev => ({ ...prev, [cpId]: !prev[cpId] }))
+  }
+
+  const getStatusColor = (status) => {
+    const s = (status || '').toLowerCase()
+    if (s === 'charging') return 'var(--cr-success)'
+    if (s === 'available') return 'var(--cr-accent)'
+    if (s === 'preparing' || s === 'finishing') return 'var(--cr-warning)'
+    if (s === 'faulted' || s === 'unavailable') return 'var(--cr-danger)'
+    return 'var(--cr-text-muted)'
+  }
+
+  // Get connector count from model name (e.g., EVCR-SIM-2C -> 2)
+  const getConnectorCount = (cp) => {
+    const match = cp.model?.match(/(\d+)C$/)
+    return match ? parseInt(match[1]) : 1
   }
 
   return (
     <div>
-      <div className="section-title">Charge Point Control</div>
+      <div className="section-title">Remote Charging Control</div>
       
+      {/* Charge Point Selector */}
       <div className="control-group">
-        <label className="control-label">Select Charge Point</label>
+        <label className="control-label">Charge Point</label>
         <select 
           className="control-select"
           value={selectedCP}
-          onChange={(e) => setSelectedCP(e.target.value)}
+          onChange={(e) => {
+            setSelectedCP(e.target.value)
+            setSelectedConnector(1)
+          }}
         >
-          <option value="EVCR-001">EVCR-001</option>
-          <option value="EVCR-002">EVCR-002</option>
+          {chargePoints.length === 0 && (
+            <option value="">No charge points connected</option>
+          )}
+          {chargePoints.map(cp => (
+            <option key={cp.id} value={cp.id}>
+              {cp.id} ({cp.status})
+            </option>
+          ))}
         </select>
       </div>
 
+      {/* Connector Selector - show if CP has multiple connectors */}
+      {selectedCP && (() => {
+        const cp = chargePoints.find(c => c.id === selectedCP)
+        const connCount = cp ? getConnectorCount(cp) : 1
+        if (connCount > 1) {
+          return (
+            <div className="control-group">
+              <label className="control-label">Connector</label>
+              <select 
+                className="control-select"
+                value={selectedConnector}
+                onChange={(e) => setSelectedConnector(parseInt(e.target.value))}
+              >
+                {Array.from({ length: connCount }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>Connector {n}</option>
+                ))}
+              </select>
+            </div>
+          )
+        }
+        return null
+      })()}
+
+      {/* ID Tag */}
+      <div className="control-group">
+        <label className="control-label">ID Tag (RFID)</label>
+        <input 
+          type="text"
+          className="control-input"
+          value={idTag}
+          onChange={(e) => setIdTag(e.target.value)}
+          placeholder="User ID Tag"
+        />
+      </div>
+
+      {/* Control Buttons */}
       <div className="control-buttons">
-        <button className="btn-control btn-start" onClick={handleRemoteStart}>
-          <Play size={16} />
-          Start Charging
+        <button 
+          className="btn-control btn-start" 
+          onClick={handleRemoteStart}
+          disabled={loading || !selectedCP}
+        >
+          {loading ? <Loader2 size={16} className="spin" /> : <Play size={16} />}
+          Start
         </button>
-        <button className="btn-control btn-stop" onClick={handleRemoteStop}>
-          <Square size={16} />
-          Stop Charging
+        <button 
+          className="btn-control btn-stop" 
+          onClick={() => handleRemoteStop()}
+          disabled={loading || !selectedCP}
+        >
+          {loading ? <Loader2 size={16} className="spin" /> : <Square size={16} />}
+          Stop
         </button>
+      </div>
+
+      {/* Result Message */}
+      {lastResult && (
+        <div className={`result-message ${lastResult.type}`}>
+          {lastResult.message}
+        </div>
+      )}
+
+      <div className="section-divider" />
+
+      {/* Connected Charge Points Status */}
+      <div className="section-title">
+        Connected Charge Points
+        <button className="refresh-btn" onClick={fetchChargePoints}>
+          <RefreshCw size={12} />
+        </button>
+      </div>
+
+      <div className="cp-list">
+        {chargePoints.length === 0 ? (
+          <div className="no-cp">
+            <Activity size={20} />
+            <span>No charge points connected</span>
+            <span className="hint">Start the lab with .\start.ps1</span>
+          </div>
+        ) : (
+          chargePoints.map(cp => (
+            <div key={cp.id} className="cp-card">
+              <div className="cp-header" onClick={() => toggleExpand(cp.id)}>
+                {expanded[cp.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <Zap size={14} style={{ color: getStatusColor(cp.status) }} />
+                <span className="cp-id">{cp.id}</span>
+                <span 
+                  className="cp-status"
+                  style={{ color: getStatusColor(cp.status) }}
+                >
+                  {cp.status}
+                </span>
+              </div>
+              {expanded[cp.id] && (
+                <div className="cp-details">
+                  <div className="cp-detail">
+                    <span>Model:</span>
+                    <span>{cp.model}</span>
+                  </div>
+                  <div className="cp-detail">
+                    <span>Vendor:</span>
+                    <span>{cp.vendor}</span>
+                  </div>
+                  <div className="cp-detail">
+                    <span>Connectors:</span>
+                    <span>{getConnectorCount(cp)}</span>
+                  </div>
+                  <div className="cp-detail">
+                    <span>Active Sessions:</span>
+                    <span>{cp.active_sessions || 0}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
 
       <div className="section-divider" />
 
-      <div className="section-title">Charge Point Status</div>
-      <div className="status-cards">
-        {Object.entries(connectors || {}).map(([id, data]) => (
-          <div key={id} className="status-card">
-            <div className="status-header">
-              <Zap size={14} />
-              <span>Connector {id}</span>
-              <span className={`status-badge ${data?.state?.toLowerCase() || 'unknown'}`}>
-                {data?.state || 'Unknown'}
-              </span>
-            </div>
-            {data?.metrics && (
-              <div className="status-metrics">
-                <div className="metric">
-                  <span className="metric-value">{(data.metrics.power_w || 0).toFixed(0)}</span>
-                  <span className="metric-unit">W</span>
-                </div>
-                <div className="metric">
-                  <span className="metric-value">{((data.metrics.energy_wh || 0) / 1000).toFixed(2)}</span>
-                  <span className="metric-unit">kWh</span>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      {/* Kali Link */}
+      <div className="section-title">Security Testing</div>
+      <a 
+        href="http://localhost:6080/vnc.html?autoconnect=true" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="kali-link"
+      >
+        <Terminal size={18} />
+        <div className="kali-text">
+          <span className="kali-title">Open Kali Linux</span>
+          <span className="kali-hint">Run attacks from the terminal</span>
+        </div>
+        <ExternalLink size={14} />
+      </a>
 
       <style>{`
+        .section-title {
+          font-size: 0.6875rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--cr-text-muted);
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .section-divider {
+          height: 1px;
+          background: var(--cr-border);
+          margin: 20px 0;
+        }
+        .refresh-btn {
+          background: none;
+          border: none;
+          color: var(--cr-text-muted);
+          cursor: pointer;
+          padding: 2px;
+        }
+        .refresh-btn:hover {
+          color: var(--cr-accent);
+        }
         .control-group {
-          margin-bottom: 16px;
+          margin-bottom: 12px;
         }
         .control-label {
           display: block;
@@ -319,22 +743,24 @@ function ControlSection() {
           color: var(--cr-text-muted);
           margin-bottom: 6px;
         }
-        .control-select {
+        .control-select, .control-input {
           width: 100%;
           padding: 8px 12px;
           background: var(--cr-surface2);
           border: 1px solid var(--cr-border);
           border-radius: 6px;
           color: var(--cr-text);
-          font-size: 0.875rem;
+          font-size: 0.8125rem;
+          font-family: inherit;
         }
-        .control-select:focus {
+        .control-select:focus, .control-input:focus {
           outline: none;
           border-color: var(--cr-accent);
         }
         .control-buttons {
           display: flex;
           gap: 8px;
+          margin-top: 16px;
         }
         .btn-control {
           flex: 1;
@@ -350,230 +776,135 @@ function ControlSection() {
           cursor: pointer;
           transition: all 0.15s;
         }
+        .btn-control:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
         .btn-start {
           background: var(--cr-success);
           color: white;
         }
-        .btn-start:hover {
-          background: var(--cr-success-dim);
+        .btn-start:hover:not(:disabled) {
+          filter: brightness(1.1);
         }
         .btn-stop {
           background: var(--cr-danger);
           color: white;
         }
-        .btn-stop:hover {
-          background: var(--cr-danger-dim);
+        .btn-stop:hover:not(:disabled) {
+          filter: brightness(1.1);
         }
-        .status-cards {
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .result-message {
+          margin-top: 12px;
+          padding: 8px 12px;
+          border-radius: 6px;
+          font-size: 0.8125rem;
+        }
+        .result-message.success {
+          background: rgba(74, 159, 110, 0.15);
+          color: var(--cr-success);
+          border: 1px solid rgba(74, 159, 110, 0.3);
+        }
+        .result-message.error {
+          background: rgba(196, 92, 92, 0.15);
+          color: var(--cr-danger);
+          border: 1px solid rgba(196, 92, 92, 0.3);
+        }
+        .cp-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 6px;
         }
-        .status-card {
-          padding: 12px;
+        .no-cp {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          padding: 24px;
+          color: var(--cr-text-muted);
+          text-align: center;
+        }
+        .no-cp .hint {
+          font-size: 0.75rem;
+          color: var(--cr-text-dim);
+        }
+        .cp-card {
           background: var(--cr-surface2);
           border: 1px solid var(--cr-border);
           border-radius: 6px;
+          overflow: hidden;
         }
-        .status-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: var(--cr-text-secondary);
-          font-size: 0.8125rem;
-        }
-        .status-badge {
-          margin-left: auto;
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 0.6875rem;
-          font-weight: 500;
-          text-transform: uppercase;
-        }
-        .status-badge.charging {
-          background: rgba(74, 159, 110, 0.2);
-          color: var(--cr-success);
-        }
-        .status-badge.available {
-          background: rgba(77, 166, 168, 0.2);
-          color: var(--cr-accent);
-        }
-        .status-badge.preparing, .status-badge.suspended {
-          background: rgba(201, 145, 58, 0.2);
-          color: var(--cr-warning);
-        }
-        .status-badge.faulted {
-          background: rgba(196, 92, 92, 0.2);
-          color: var(--cr-danger);
-        }
-        .status-metrics {
-          display: flex;
-          gap: 16px;
-          margin-top: 8px;
-        }
-        .metric {
-          display: flex;
-          align-items: baseline;
-          gap: 4px;
-        }
-        .metric-value {
-          font-size: 1.125rem;
-          font-weight: 600;
-          color: var(--cr-text);
-        }
-        .metric-unit {
-          font-size: 0.75rem;
-          color: var(--cr-text-muted);
-        }
-      `}</style>
-    </div>
-  )
-}
-
-function AttacksSection() {
-  const [attacks, setAttacks] = useState([
-    { id: 'replay', name: 'OCPP Replay Attack', desc: 'Capture and replay RemoteStart commands', status: 'ready' },
-    { id: 'mitm', name: 'ARP Spoofing MitM', desc: 'Intercept traffic between CP and CSMS', status: 'ready' },
-    { id: 'fuzzing', name: 'OCPP Message Fuzzing', desc: 'Send malformed OCPP messages', status: 'ready' },
-    { id: 'dos', name: 'Connection Flood', desc: 'Exhaust CSMS connection pool', status: 'ready' },
-  ])
-
-  const startAttack = (attackId) => {
-    setAttacks(attacks.map(a => 
-      a.id === attackId ? { ...a, status: 'running' } : a
-    ))
-  }
-
-  const stopAttack = (attackId) => {
-    setAttacks(attacks.map(a => 
-      a.id === attackId ? { ...a, status: 'ready' } : a
-    ))
-  }
-
-  return (
-    <div>
-      <div className="section-title">Security Testing</div>
-      
-      <div className="attack-warning">
-        <AlertTriangle size={14} />
-        <span>Attacks affect the simulated environment only</span>
-      </div>
-
-      <div className="attack-list">
-        {attacks.map(attack => (
-          <div key={attack.id} className={`attack-card ${attack.status}`}>
-            <div className="attack-header">
-              <Shield size={14} />
-              <span className="attack-name">{attack.name}</span>
-              <span className={`attack-status ${attack.status}`}>
-                {attack.status === 'running' ? 'Running' : 'Ready'}
-              </span>
-            </div>
-            <p className="attack-desc">{attack.desc}</p>
-            <div className="attack-actions">
-              {attack.status === 'ready' ? (
-                <button 
-                  className="btn-attack btn-start-attack"
-                  onClick={() => startAttack(attack.id)}
-                >
-                  <Play size={12} />
-                  Launch
-                </button>
-              ) : (
-                <button 
-                  className="btn-attack btn-stop-attack"
-                  onClick={() => stopAttack(attack.id)}
-                >
-                  <Square size={12} />
-                  Stop
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <style>{`
-        .attack-warning {
+        .cp-header {
           display: flex;
           align-items: center;
           gap: 8px;
           padding: 10px 12px;
-          background: rgba(201, 145, 58, 0.1);
-          border: 1px solid rgba(201, 145, 58, 0.3);
-          border-radius: 6px;
-          color: var(--cr-warning);
-          font-size: 0.75rem;
-          margin-bottom: 16px;
+          cursor: pointer;
+          transition: background 0.15s;
         }
-        .attack-list {
+        .cp-header:hover {
+          background: var(--cr-surface3);
+        }
+        .cp-id {
+          font-size: 0.8125rem;
+          font-weight: 500;
+          color: var(--cr-text);
+        }
+        .cp-status {
+          margin-left: auto;
+          font-size: 0.75rem;
+          font-weight: 500;
+        }
+        .cp-details {
+          padding: 8px 12px 12px 32px;
+          border-top: 1px solid var(--cr-border);
+          background: var(--cr-surface);
+        }
+        .cp-detail {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.75rem;
+          padding: 4px 0;
+          color: var(--cr-text-muted);
+        }
+        .cp-detail span:last-child {
+          color: var(--cr-text-secondary);
+        }
+        .kali-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px;
+          background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+          border: 1px solid #4a5568;
+          border-radius: 8px;
+          color: #e2e8f0;
+          text-decoration: none;
+          transition: all 0.15s;
+        }
+        .kali-link:hover {
+          border-color: #718096;
+          transform: translateY(-1px);
+        }
+        .kali-text {
+          flex: 1;
           display: flex;
           flex-direction: column;
-          gap: 8px;
         }
-        .attack-card {
-          padding: 12px;
-          background: var(--cr-surface2);
-          border: 1px solid var(--cr-border);
-          border-radius: 6px;
-          transition: all 0.15s;
-        }
-        .attack-card.running {
-          border-color: var(--cr-danger);
-          background: rgba(196, 92, 92, 0.1);
-        }
-        .attack-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: var(--cr-text-secondary);
-          font-size: 0.8125rem;
-        }
-        .attack-name {
+        .kali-title {
+          font-size: 0.875rem;
           font-weight: 500;
-          color: var(--cr-text);
         }
-        .attack-status {
-          margin-left: auto;
+        .kali-hint {
           font-size: 0.6875rem;
-          font-weight: 500;
-          text-transform: uppercase;
-        }
-        .attack-status.ready {
-          color: var(--cr-text-muted);
-        }
-        .attack-status.running {
-          color: var(--cr-danger);
-        }
-        .attack-desc {
-          font-size: 0.75rem;
-          color: var(--cr-text-muted);
-          margin: 8px 0;
-        }
-        .attack-actions {
-          display: flex;
-          gap: 8px;
-        }
-        .btn-attack {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          padding: 4px 10px;
-          border: none;
-          border-radius: 4px;
-          font-size: 0.75rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.15s;
-        }
-        .btn-start-attack {
-          background: var(--cr-danger);
-          color: white;
-        }
-        .btn-stop-attack {
-          background: var(--cr-surface3);
-          color: var(--cr-text);
-          border: 1px solid var(--cr-border);
+          color: #a0aec0;
         }
       `}</style>
     </div>

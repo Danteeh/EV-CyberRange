@@ -279,6 +279,182 @@ function CSMSNode({ data, selected }) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// Vulnerable EVSE Node - Shows CVE info and attack status
+// ═══════════════════════════════════════════════════════════
+
+function VulnerableEVSENode({ data, selected }) {
+  const state = data.state || 'Available'
+  const isCompromised = data.compromised || false
+  const cves = data.cves || []
+  const port = data.port || 8080
+
+  return (
+    <div className={`node-vuln-evse ${selected ? 'selected' : ''} ${isCompromised ? 'compromised' : ''}`}>
+      <Handle type="target" position={Position.Left} id="in" />
+      <Handle type="source" position={Position.Right} id="out" />
+      
+      <div className="vuln-header">
+        <div className="vuln-icon-container">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L3 7V12C3 17.55 7.16 22.74 12 24C16.84 22.74 21 17.55 21 12V7L12 2Z" 
+                  fill={isCompromised ? '#dc2626' : '#f59e0b'} opacity="0.9"/>
+            <path d="M12 8V12M12 16H12.01" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <span className="vuln-vendor">{data.vendor || 'Unknown'}</span>
+      </div>
+      
+      <div className="vuln-body">
+        <div className="vuln-label">{data.label}</div>
+        <div className="vuln-model">{data.model || 'EVSE'}</div>
+        
+        <div className="vuln-cve-list">
+          {cves.slice(0, 2).map((cve, i) => (
+            <span key={i} className="vuln-cve-tag">{cve}</span>
+          ))}
+        </div>
+        
+        <div className="vuln-state">
+          <span className={`state-dot ${state.toLowerCase()}`}></span>
+          {state}
+        </div>
+        
+        <a 
+          href={`http://localhost:${port}`} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="vuln-port-link"
+          onClick={(e) => e.stopPropagation()}
+        >
+          :${port}
+        </a>
+      </div>
+      
+      {isCompromised && (
+        <div className="compromised-banner">COMPROMISED</div>
+      )}
+      
+      <style>{`
+        .node-vuln-evse {
+          padding: 0;
+          border-radius: 8px;
+          background: var(--cr-surface);
+          border: 2px solid rgba(245, 158, 11, 0.5);
+          transition: all 0.2s;
+          width: 140px;
+          overflow: hidden;
+        }
+        .node-vuln-evse.selected {
+          border-color: #f59e0b;
+          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+        }
+        .node-vuln-evse.compromised {
+          border-color: #dc2626;
+          background: rgba(220, 38, 38, 0.1);
+        }
+        .vuln-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px;
+          background: rgba(245, 158, 11, 0.15);
+          border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+        }
+        .compromised .vuln-header {
+          background: rgba(220, 38, 38, 0.2);
+        }
+        .vuln-icon-container {
+          flex-shrink: 0;
+        }
+        .vuln-vendor {
+          font-size: 0.625rem;
+          font-weight: 600;
+          color: var(--cr-text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .vuln-body {
+          padding: 10px;
+        }
+        .vuln-label {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--cr-text);
+          margin-bottom: 2px;
+        }
+        .vuln-model {
+          font-size: 0.625rem;
+          color: var(--cr-text-muted);
+          margin-bottom: 8px;
+        }
+        .vuln-cve-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-bottom: 8px;
+        }
+        .vuln-cve-tag {
+          font-size: 0.5625rem;
+          font-family: monospace;
+          padding: 2px 6px;
+          background: rgba(220, 38, 38, 0.2);
+          color: #dc2626;
+          border-radius: 3px;
+        }
+        .vuln-state {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.625rem;
+          color: var(--cr-text-secondary);
+          margin-bottom: 6px;
+        }
+        .state-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--cr-text-muted);
+        }
+        .state-dot.available {
+          background: #4da6a8;
+        }
+        .state-dot.charging {
+          background: #4a9f6e;
+        }
+        .state-dot.faulted {
+          background: #dc2626;
+        }
+        .vuln-port-link {
+          display: inline-block;
+          font-size: 0.625rem;
+          font-family: monospace;
+          color: var(--cr-accent);
+          text-decoration: none;
+          padding: 2px 6px;
+          background: var(--cr-surface2);
+          border-radius: 3px;
+        }
+        .vuln-port-link:hover {
+          background: var(--cr-surface3);
+        }
+        .compromised-banner {
+          text-align: center;
+          font-size: 0.5625rem;
+          font-weight: 700;
+          padding: 4px;
+          background: #dc2626;
+          color: white;
+          letter-spacing: 0.1em;
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
 // Main Canvas Component
 // ═══════════════════════════════════════════════════════════
 
@@ -286,6 +462,7 @@ const nodeTypes = {
   ev: EVNode,
   evse: EVSENode,
   csms: CSMSNode,
+  vulnerable_evse: VulnerableEVSENode,
 }
 
 const initialNodes = [
@@ -329,57 +506,62 @@ const initialEdges = [
 ]
 
 export default function TopologyCanvas() {
-  const { connectors, connectivity } = useStore()
+  const { chargePoints, connectivity } = useStore()
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
-  // Update nodes with real data
+  // Update nodes with real data from chargePoints
   const updatedNodes = useMemo(() => {
     return nodes.map(node => {
       if (node.type === 'evse') {
-        const connectorId = node.id === 'evse-1' ? '1' : '2'
-        const connectorData = connectors?.[connectorId]
-        if (connectorData) {
+        // Match EVSE node to charge point by label
+        const cp = chargePoints?.find(c => c.id === node.data.label)
+        if (cp) {
           return {
             ...node,
             data: {
               ...node.data,
-              state: connectorData.state || 'Available',
-              power: connectorData.metrics?.power_w || 0,
+              state: cp.status || 'Available',
+              power: 0,
             }
           }
         }
       }
       if (node.type === 'ev') {
-        const connectorId = node.id === 'ev-1' ? '1' : '2'
-        const connectorData = connectors?.[connectorId]
+        // EV charging state based on connected EVSE
+        const evseId = node.id === 'ev-1' ? 'EVCR-001' : 'EVCR-002'
+        const cp = chargePoints?.find(c => c.id === evseId)
         return {
           ...node,
           data: {
             ...node.data,
-            state: connectorData?.state === 'Charging' ? 'Charging' : 'Idle',
+            state: cp?.status === 'Charging' ? 'Charging' : 'Idle',
           }
         }
       }
       if (node.type === 'csms') {
+        const isOnline = connectivity?.csms === true
+        const cpCount = chargePoints?.length || 0
         return {
           ...node,
           data: {
             ...node.data,
-            status: connectivity?.ocpp === 'CONNECTED' ? 'online' : 'offline',
+            status: isOnline ? 'online' : 'offline',
+            connections: cpCount,
           }
         }
       }
       return node
     })
-  }, [nodes, connectors, connectivity])
+  }, [nodes, chargePoints, connectivity])
 
   // Update edges based on charging state
   const updatedEdges = useMemo(() => {
     return edges.map(edge => {
       if (edge.source.startsWith('ev-')) {
-        const connectorId = edge.source === 'ev-1' ? '1' : '2'
-        const isCharging = connectors?.[connectorId]?.state === 'Charging'
+        const evseId = edge.source === 'ev-1' ? 'EVCR-001' : 'EVCR-002'
+        const cp = chargePoints?.find(c => c.id === evseId)
+        const isCharging = cp?.status === 'Charging'
         return {
           ...edge,
           animated: isCharging,
@@ -391,7 +573,7 @@ export default function TopologyCanvas() {
       }
       return edge
     })
-  }, [edges, connectors])
+  }, [edges, chargePoints])
 
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),
@@ -414,17 +596,46 @@ export default function TopologyCanvas() {
         y: event.clientY - 100,
       }
 
-      const newNode = {
-        id: `${type}-${Date.now()}`,
-        type,
-        position,
-        data: {
-          label: type === 'ev' ? 'New EV' : type === 'evse' ? 'New EVSE' : 'New CSMS',
-          state: type === 'ev' ? 'Idle' : 'Available',
-        },
+      let newNode
+
+      // Handle vulnerable EVSE components
+      if (type === 'vulnerable_evse') {
+        const vulnCpData = event.dataTransfer.getData('vulnCpData')
+        if (vulnCpData) {
+          const vulnCp = JSON.parse(vulnCpData)
+          newNode = {
+            id: `vuln-${vulnCp.id}-${Date.now()}`,
+            type: 'vulnerable_evse',
+            position,
+            data: {
+              label: `CP-${vulnCp.id.toUpperCase().slice(0, 8)}`,
+              vendor: vulnCp.vendor,
+              model: vulnCp.model,
+              state: 'Available',
+              port: vulnCp.port,
+              cves: vulnCp.cves,
+              vulns: vulnCp.vulns,
+              difficulty: vulnCp.difficulty,
+              compromised: false,
+            },
+          }
+        }
+      } else {
+        // Standard components
+        newNode = {
+          id: `${type}-${Date.now()}`,
+          type,
+          position,
+          data: {
+            label: type === 'ev' ? 'New EV' : type === 'evse' ? 'New EVSE' : 'New CSMS',
+            state: type === 'ev' ? 'Idle' : 'Available',
+          },
+        }
       }
 
-      setNodes((nds) => nds.concat(newNode))
+      if (newNode) {
+        setNodes((nds) => nds.concat(newNode))
+      }
     },
     [setNodes],
   )

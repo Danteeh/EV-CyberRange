@@ -1,108 +1,83 @@
 import { create } from 'zustand'
 
-// WS conecta siempre directo al backend (puerto 8000).
-// El proxy de Vite no se usa para WS — causa ECONNABORTED con uvicorn.
-// En produccion (backend sirve el build estatico) se usa la misma host/port.
-const WS_URL = (() => {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  // En dev (5173) conectar directo a 8000. En prod el host ya es el backend.
-  const host = window.location.port === '5173'
-    ? `${window.location.hostname}:8000`
-    : window.location.host
-  return `${proto}//${host}/ws/realtime`
-})()
-
 export const useStore = create((set, get) => ({
   // ── Conectividad ──────────────────────────────────────────
-  wsConnected: false,
-  station: null,
-  connectivity: { mqtt: false, ocpp: 'UNKNOWN' },
-  connectors: {},
-  attacks: [],
+  connectivity: { 
+    backend: false, 
+    csms: false,
+    nodered: false,
+    kali: false 
+  },
+  chargePoints: [],
   recentEvents: [],
-  updatedAt: null,
-
+  
   // ── UI ────────────────────────────────────────────────────
   selectedConnector: 1,
-  activePanel: 'control',   // 'control' | 'events' | 'attacks'
-  attackScenarios: [],
+  activePanel: 'control',
 
-  // ── WebSocket ─────────────────────────────────────────────
-  _ws: null,
+  // ── Polling para verificar servicios ──────────────────────
+  _pollInterval: null,
 
-  connectWS() {
-    const existing = get()._ws
-    if (existing) existing.close()
+  startPolling() {
+    const existing = get()._pollInterval
+    if (existing) clearInterval(existing)
 
-    const ws = new WebSocket(WS_URL)
+    // Initial check
+    get().checkServices()
 
-    ws.onopen = () => {
-      set({ wsConnected: true })
-      console.log('[WS] connected')
+    // Poll every 5 seconds
+    const interval = setInterval(() => get().checkServices(), 5000)
+    set({ _pollInterval: interval })
+  },
+
+  stopPolling() {
+    const interval = get()._pollInterval
+    if (interval) {
+      clearInterval(interval)
+      set({ _pollInterval: null })
     }
-    ws.onclose = () => {
-      set({ wsConnected: false })
-      console.log('[WS] disconnected — retry in 3s')
-      setTimeout(() => get().connectWS(), 3000)
-    }
-    ws.onerror = (e) => console.error('[WS] error', e)
+  },
 
-    ws.onmessage = ({ data }) => {
-      try {
-        const msg = JSON.parse(data)
-        if (msg.type === 'state') {
-          set({
-            station: msg.station,
-            connectivity: msg.connectivity,
-            connectors: msg.connectors,
-            attacks: msg.attacks,
-            recentEvents: msg.recent_events,
-            updatedAt: msg.updated_at,
-          })
-        } else if (msg.type === 'event') {
-          set((s) => ({
-            recentEvents: [msg.event, ...s.recentEvents].slice(0, 100),
-          }))
-        }
-      } catch (e) {
-        console.error('[WS] parse error', e)
+  async checkServices() {
+    const newConnectivity = { 
+      backend: false, 
+      csms: false,
+      nodered: false,
+      kali: false 
+    }
+    
+    // Check Backend + CSMS (via charge points endpoint)
+    try {
+      const res = await fetch('/api/ocpp/charge-points')
+      if (res.ok) {
+        const data = await res.json()
+        newConnectivity.backend = true
+        newConnectivity.csms = (data.total || 0) > 0
+        set({ chargePoints: data.charge_points || [] })
       }
+    } catch (e) {
+      console.log('Backend check failed:', e.message)
     }
 
-    set({ _ws: ws })
+    // For Node-RED and Kali, we can't check from browser due to CORS
+    // So we assume they're up if backend is up (they're all started together)
+    if (newConnectivity.backend) {
+      newConnectivity.nodered = true
+      newConnectivity.kali = true
+    }
+
+    set({ connectivity: newConnectivity })
+  },
+
+  addEvent(event) {
+    set((s) => ({
+      recentEvents: [
+        { ...event, timestamp: new Date().toISOString() },
+        ...s.recentEvents
+      ].slice(0, 50)
+    }))
   },
 
   setSelectedConnector: (id) => set({ selectedConnector: id }),
   setActivePanel: (p) => set({ activePanel: p }),
-
-  // ── Carga escenarios de ataque ────────────────────────────
-  async loadScenarios() {
-    try {
-      const r = await fetch('/api/attacks/scenarios')
-      const d = await r.json()
-      set({ attackScenarios: d.scenarios })
-    } catch (e) {
-      console.error('loadScenarios', e)
-    }
-  },
-
-  // ── Control API ───────────────────────────────────────────
-  async sendControl(connectorId, action, body = {}) {
-    const r = await fetch(`/api/control/connector/${connectorId}/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    return r.json()
-  },
-
-  async startAttack(scenarioId) {
-    const r = await fetch(`/api/attacks/${scenarioId}/start`, { method: 'POST' })
-    return r.json()
-  },
-
-  async stopAttack(scenarioId) {
-    const r = await fetch(`/api/attacks/${scenarioId}/stop`, { method: 'POST' })
-    return r.json()
-  },
 }))

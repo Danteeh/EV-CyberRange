@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy vulnerable charge point code
+COPY vulnerable_charge_points.py .
+COPY vulnerable_cps_launcher.py .
+
+# Expose HTTP ports for web interfaces
+EXPOSE 8081 8082 8083 8084 8085 8086
+
+# Run the launcher
+CMD ["python", "-u", "vulnerable_cps_launcher.py"]

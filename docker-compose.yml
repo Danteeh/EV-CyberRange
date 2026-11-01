@@ -167,7 +167,9 @@ services:
     image: ghcr.io/everest/everest-demo/mqtt-server:2025.10.0-single-phase
     container_name: everest-mqtt
     networks:
-      - ev-cyberrange
+      ev-cyberrange:
+        aliases:
+          - mqtt-server
     ports:
       - "1883:1883"
     restart: unless-stopped
@@ -249,4 +251,36 @@ services:
     depends_on:
       - mqtt
       - csms
+    restart: unless-stopped
+
+  # ============================================
+  # VULNERABLE CHARGE POINTS (CVE Lab Targets)
+  # These simulate real-world vulnerabilities
+  # for security testing and education
+  # ============================================
+  vulnerable-cps:
+    build:
+      context: ./csms
+      dockerfile: Dockerfile.vulnerable
+    container_name: evcr-vulnerable-cps
+    networks:
+      - ev-cyberrange
+    depends_on:
+      csms:
+        condition: service_healthy
+    ports:
+      # Hardy Barth (CVE-2024-11665, CVE-2024-11666)
+      - "8081:8081"
+      # Schneider EVlink (CVE-2018-7800, CVE-2018-7801)
+      - "8082:8082"
+      # Wallbox Pulsar (CVE-2023-32249)
+      - "8083:8083"
+      # ChargePoint Home Flex (CVE-2022-26132)
+      - "8084:8084"
+      # Generic Web Interface (CVE-2024-43659)
+      - "8085:8085"
+      # ISO 15118 Gateway (CVE-2025-12357)
+      - "8086:8086"
+    environment:
+      - CSMS_URL=ws://evcr-csms:9000
     restart: unless-stopped

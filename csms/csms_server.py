@@ -554,6 +554,18 @@ async def run_http_api(csms: CSMS, port: int = 9001):
             if not handler:
                 return web.json_response({"status": "Rejected", "error": "Charge point not connected"}, status=404)
             
+            # If no transaction_id provided, stop the first active transaction
+            if transaction_id is None:
+                active_sessions = list(handler.info.sessions.keys())
+                if active_sessions:
+                    transaction_id = active_sessions[0]
+                else:
+                    return web.json_response({
+                        "status": "Rejected", 
+                        "error": "No active transactions",
+                        "charge_point_id": cp_id
+                    })
+            
             success = await handler.remote_stop_transaction(transaction_id)
             return web.json_response({
                 "status": "Accepted" if success else "Rejected",

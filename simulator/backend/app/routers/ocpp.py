@@ -25,7 +25,7 @@ class RemoteStartRequest(BaseModel):
 
 class RemoteStopRequest(BaseModel):
     charge_point_id: str
-    transaction_id: int
+    transaction_id: int | None = None  # Optional - CSMS will find active transaction
 
 
 class ResetRequest(BaseModel):
@@ -121,6 +121,34 @@ async def remote_start(req: RemoteStartRequest) -> dict[str, Any]:
         "connector_id": req.connector_id
     })
     
+    # Map Charge Point ID to EVerest connector number
+    # EVCR-001 → Connector 1, EVCR-002 → Connector 2, etc.
+    cp_to_everest = {
+        "EVCR-001": 1,
+        "EVCR-002": 2,
+        "EVCR-003": 1,  # DC Fast chargers share connectors for now
+        "EVCR-004": 2,
+    }
+    everest_connector = cp_to_everest.get(req.charge_point_id, 1)
+    
+    # Also trigger EVerest simulation via MQTT
+    try:
+        import paho.mqtt.publish as publish
+        
+        # Full charging script: plugin + wait for auth + draw power
+        # This simulates: car plugs in, waits for EVSE ready, then draws power
+        charging_script = "sleep 1;iec_wait_pwr_ready;sleep 1;draw_power_regulated 16,3;sleep 36000"
+        
+        publish.single(
+            f"everest_external/nodered/{everest_connector}/carsim/cmd/execute_charging_session",
+            f"{charging_script}#unplug#pause;sleep 3600#{charging_script}",
+            hostname="mqtt",
+            port=1883
+        )
+        log.info(f"EVerest: Charging session started on connector {everest_connector}")
+    except Exception as e:
+        log.warning(f"Could not send to EVerest: {e}")
+    
     return {
         **result,
         "timestamp": datetime.utcnow().isoformat(),
@@ -136,6 +164,29 @@ async def remote_stop(req: RemoteStopRequest) -> dict[str, Any]:
         "charge_point_id": req.charge_point_id,
         "transaction_id": req.transaction_id
     })
+    
+    # Map Charge Point ID to EVerest connector number
+    cp_to_everest = {
+        "EVCR-001": 1,
+        "EVCR-002": 2,
+        "EVCR-003": 1,
+        "EVCR-004": 2,
+    }
+    everest_connector = cp_to_everest.get(req.charge_point_id, 1)
+    
+    # Also stop EVerest simulation via MQTT
+    try:
+        import paho.mqtt.publish as publish
+        # Stop and unplug on the mapped connector
+        publish.single(
+            f"everest_external/nodered/{everest_connector}/carsim/cmd/modify_charging_session",
+            "unplug",
+            hostname="mqtt",
+            port=1883
+        )
+        log.info(f"EVerest: Car unplugged from connector {everest_connector} (CP: {req.charge_point_id})")
+    except Exception as e:
+        log.warning(f"Could not send stop to EVerest: {e}")
     
     return {
         **result,
