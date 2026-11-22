@@ -22,7 +22,7 @@ services:
       - ev-cyberrange
     ports:
       - "9000:9000"
-      - "9001:9001"
+      - "9002:9001"  # Changed from 9001 to avoid port conflict
     volumes:
       - ./shared-logs:/shared-logs
     environment:
@@ -170,8 +170,9 @@ services:
       ev-cyberrange:
         aliases:
           - mqtt-server
+          - mqtt
     ports:
-      - "1883:1883"
+      - "1884:1883"  # Changed from 1883 to avoid port conflict
     restart: unless-stopped
 
   everest-manager:
@@ -219,7 +220,10 @@ services:
       - "6080:6080"
       - "5901:5901"
     volumes:
-      - ./shared-logs:/shared-logs:ro
+      - ./shared-logs:/shared-logs
+    environment:
+      - ATTACK_LOG_PATH=/shared-logs/attack_events.jsonl
+      - BACKEND_URL=http://evcr-backend:8000
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -241,13 +245,14 @@ services:
     networks:
       - ev-cyberrange
     ports:
-      - "8000:8000"
+      - "8010:8000"  # Changed from 8000 to avoid port conflict
     volumes:
-      - ./shared-logs:/shared-logs:ro
+      - ./shared-logs:/shared-logs
     environment:
       - MQTT_BROKER=mqtt
       - MQTT_PORT=1883
       - CSMS_WS_URL=ws://csms:9000
+      - ATTACK_LOG_PATH=/shared-logs/attack_events.jsonl
     depends_on:
       - mqtt
       - csms

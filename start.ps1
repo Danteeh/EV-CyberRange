@@ -81,9 +81,9 @@ while (((Get-Date) - $start).TotalSeconds -lt $timeout) {
     Start-Sleep -Seconds 2
 }
 
-# Start Charge Points
+# Start Charge Points (normal and vulnerable)
 Write-Host "[*] Starting Charge Points..." -ForegroundColor Gray
-$null = docker compose up -d chargepoint-1 chargepoint-2 2>&1
+$null = docker compose up -d chargepoint-1 chargepoint-2 vulnerable-cps 2>&1
 
 if ($Full) {
     Write-Host "[*] Starting additional Charge Points (3-6)..." -ForegroundColor Gray
@@ -107,13 +107,13 @@ Start-Sleep -Seconds 5
 # Check for frontend dev server or start it
 $frontendRunning = $false
 try {
-    $response = Invoke-WebRequest -Uri "http://localhost:5173" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
+    $response = Invoke-WebRequest -Uri "http://localhost:5174" -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
     if ($response.StatusCode -eq 200) { $frontendRunning = $true }
 } catch {}
 
 if (-not $frontendRunning) {
-    Write-Host "[*] Starting Frontend dev server..." -ForegroundColor Gray
-    Start-Process -FilePath "cmd" -ArgumentList "/c", "cd /d $ProjectRoot\frontend && npm run dev" -WindowStyle Minimized
+    Write-Host "[*] Starting Frontend dev server on port 5174..." -ForegroundColor Gray
+    Start-Process -FilePath "cmd" -ArgumentList "/c", "cd /d $ProjectRoot\frontend && npm run dev -- --port 5174" -WindowStyle Minimized
     Start-Sleep -Seconds 5
 }
 
@@ -126,17 +126,21 @@ Write-Host ""
 
 # Check all services
 $services = @{
-    "MQTT Broker" = @{Port=1883; Color="Green"}
+    "MQTT Broker" = @{Port=1884; Color="Green"}
     "CSMS WebSocket" = @{Port=9000; Color="Green"}
-    "CSMS REST API" = @{Port=9001; Color="Green"}
-    "Backend API" = @{Port=8000; Color="Green"}
+    "CSMS REST API" = @{Port=9002; Color="Green"}
+    "Backend API" = @{Port=8010; Color="Green"}
     "Node-RED (EVerest UI)" = @{Port=1880; Color="Green"}
-    "Frontend" = @{Port=5173; Color="Cyan"}
+    "Frontend" = @{Port=5174; Color="Cyan"}
 }
 
 if (-not $NoKali) {
     $services["Kali noVNC"] = @{Port=6080; Color="Red"}
 }
+
+# Vulnerable CPs
+$services["Vulnerable CPs (Hardy)"] = @{Port=8081; Color="Magenta"}
+$services["Vulnerable CPs (Wallbox)"] = @{Port=8083; Color="Magenta"}
 
 foreach ($svc in $services.GetEnumerator()) {
     $ok = (Test-NetConnection -ComputerName localhost -Port $svc.Value.Port -WarningAction SilentlyContinue).TcpTestSucceeded
@@ -148,7 +152,7 @@ foreach ($svc in $services.GetEnumerator()) {
 
 # Count connected charge points
 try {
-    $cpData = Invoke-RestMethod -Uri "http://localhost:8000/api/ocpp/charge-points" -TimeoutSec 3 -ErrorAction SilentlyContinue
+    $cpData = Invoke-RestMethod -Uri "http://localhost:8010/api/ocpp/charge-points" -TimeoutSec 3 -ErrorAction SilentlyContinue
     $cpCount = $cpData.total
     Write-Host ""
     Write-Host "  Charge Points Connected: $cpCount" -ForegroundColor Green
@@ -162,9 +166,9 @@ Write-Host "==========================================================" -Foregro
 Write-Host "  ACCESS URLS" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  Main Dashboard:      " -NoNewline; Write-Host "http://localhost:5173" -ForegroundColor Cyan
-Write-Host "  Backend API:         " -NoNewline; Write-Host "http://localhost:8000/docs" -ForegroundColor Green
-Write-Host "  CSMS API:            " -NoNewline; Write-Host "http://localhost:9001" -ForegroundColor Green
+Write-Host "  Main Dashboard:      " -NoNewline; Write-Host "http://localhost:5174" -ForegroundColor Cyan
+Write-Host "  Backend API:         " -NoNewline; Write-Host "http://localhost:8010/docs" -ForegroundColor Green
+Write-Host "  CSMS API:            " -NoNewline; Write-Host "http://localhost:9002" -ForegroundColor Green
 Write-Host "  Node-RED (EVerest):  " -NoNewline; Write-Host "http://localhost:1880" -ForegroundColor Green
 if (-not $NoKali) {
     Write-Host "  Kali Linux (noVNC):  " -NoNewline; Write-Host "http://localhost:6080/vnc.html" -ForegroundColor Red
@@ -176,7 +180,7 @@ Write-Host "  QUICK COMMANDS" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Start charging:  " -NoNewline
-Write-Host 'curl -X POST http://localhost:8000/api/ocpp/remote-start -H "Content-Type: application/json" -d "{\"charge_point_id\":\"EVCR-001\"}"' -ForegroundColor Yellow
+Write-Host 'curl -X POST http://localhost:8010/api/ocpp/remote-start -H "Content-Type: application/json" -d "{\"charge_point_id\":\"EVCR-001\"}"' -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  View OCPP logs:  " -NoNewline
 Write-Host "Get-Content .\shared-logs\ocpp_traffic.log -Tail 20" -ForegroundColor Yellow
