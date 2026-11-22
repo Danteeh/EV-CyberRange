@@ -34,32 +34,52 @@ import {
 
 function EVNode({ data, selected }) {
   const isCharging = data.state === 'Charging'
+  const impact = useStore((state) => state.infrastructureImpact.ev)
+  const isAffected = !!impact
   
   return (
-    <div className={`ev-node-3d ${isCharging ? 'charging' : ''} ${selected ? 'selected' : ''}`}>
+    <div className={`ev-node-3d ${isCharging ? 'charging' : ''} ${selected ? 'selected' : ''} ${isAffected ? 'affected' : ''}`}>
       <Handle type="source" position={Position.Right} id="out" className="handle-amber" />
       
       {/* Glow effect behind */}
-      {isCharging && <div className="ev-glow" />}
+      {isCharging && !isAffected && <div className="ev-glow" />}
+      {isAffected && <div className="ev-attack-glow" />}
       
       <div className="ev-icon-container">
         <Car 
           size={56} 
           strokeWidth={1.5}
-          className={`ev-icon ${isCharging ? 'charging' : ''}`}
+          className={`ev-icon ${isCharging ? 'charging' : ''} ${isAffected ? 'affected' : ''}`}
         />
-        {isCharging && (
+        {isCharging && !isAffected && (
           <div className="charging-indicator">
             <BatteryCharging size={18} className="battery-pulse" />
+          </div>
+        )}
+        {isAffected && (
+          <div className="attack-indicator">
+            <AlertTriangle size={18} className="alert-pulse" />
           </div>
         )}
       </div>
       
       <div className="ev-info">
         <span className="ev-label">{data.label}</span>
-        <span className={`ev-status ${isCharging ? 'charging' : 'idle'}`}>
-          {isCharging ? 'Charging' : 'Idle'}
-        </span>
+        {isAffected ? (
+          <>
+            <span className="ev-status affected">
+              <AlertTriangle size={10} /> IMPACTED
+            </span>
+            <div className="impact-details">
+              <span className="impact-cve">{impact.cve}</span>
+              <span className="impact-text">{impact.impact}</span>
+            </div>
+          </>
+        ) : (
+          <span className={`ev-status ${isCharging ? 'charging' : 'idle'}`}>
+            {isCharging ? 'Charging' : 'Idle'}
+          </span>
+        )}
       </div>
       
       <style>{`
@@ -91,6 +111,10 @@ function EVNode({ data, selected }) {
         .ev-node-3d.charging {
           border-color: #22c55e;
         }
+        .ev-node-3d.affected {
+          border-color: #ef4444;
+          animation: affected-pulse 1s ease-in-out infinite;
+        }
         .ev-glow {
           position: absolute;
           top: 50%;
@@ -101,6 +125,18 @@ function EVNode({ data, selected }) {
           background: radial-gradient(circle, rgba(34, 197, 94, 0.2) 0%, transparent 70%);
           border-radius: 50%;
           animation: pulse-glow 2s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .ev-attack-glow {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 140px;
+          height: 140px;
+          background: radial-gradient(circle, rgba(239, 68, 68, 0.3) 0%, transparent 70%);
+          border-radius: 50%;
+          animation: attack-glow 0.8s ease-in-out infinite;
           pointer-events: none;
         }
         .ev-icon-container {
@@ -118,6 +154,11 @@ function EVNode({ data, selected }) {
           color: #22c55e;
           filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.5));
         }
+        .ev-icon.affected {
+          color: #ef4444;
+          filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+          animation: icon-shake 0.3s ease-in-out infinite;
+        }
         .charging-indicator {
           position: absolute;
           top: -4px;
@@ -129,9 +170,25 @@ function EVNode({ data, selected }) {
           align-items: center;
           justify-content: center;
         }
+        .attack-indicator {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          background: #ef4444;
+          border-radius: 50%;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: indicator-pulse 0.5s ease-in-out infinite;
+        }
         .battery-pulse {
           color: white;
           animation: pulse-subtle 1.5s ease-in-out infinite;
+        }
+        .alert-pulse {
+          color: white;
+          animation: pulse-fast 0.5s ease-in-out infinite;
         }
         .ev-info {
           display: flex;
@@ -151,6 +208,9 @@ function EVNode({ data, selected }) {
           letter-spacing: 0.05em;
           padding: 2px 8px;
           border-radius: 4px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
         }
         .ev-status.idle {
           color: #71717a;
@@ -160,13 +220,65 @@ function EVNode({ data, selected }) {
           color: #22c55e;
           background: rgba(34, 197, 94, 0.15);
         }
+        .ev-status.affected {
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.2);
+          animation: status-blink 0.6s ease-in-out infinite;
+        }
+        .impact-details {
+          margin-top: 6px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          max-width: 120px;
+        }
+        .impact-cve {
+          font-size: 0.55rem;
+          font-family: 'JetBrains Mono', monospace;
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.15);
+          padding: 1px 4px;
+          border-radius: 2px;
+        }
+        .impact-text {
+          font-size: 0.6rem;
+          color: #fca5a5;
+          text-align: center;
+          line-height: 1.3;
+        }
         @keyframes pulse-glow {
           0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
           50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
         }
+        @keyframes attack-glow {
+          0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+          50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.15); }
+        }
         @keyframes pulse-subtle {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes pulse-fast {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(1.1); }
+        }
+        @keyframes affected-pulse {
+          0%, 100% { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(239, 68, 68, 0.3); }
+          50% { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 35px rgba(239, 68, 68, 0.5); }
+        }
+        @keyframes icon-shake {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-3deg); }
+          75% { transform: rotate(3deg); }
+        }
+        @keyframes indicator-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+        }
+        @keyframes status-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
         }
       `}</style>
     </div>
@@ -177,6 +289,8 @@ function EVSENode({ data, selected }) {
   const state = data.state || 'Available'
   const isCharging = state === 'Charging'
   const power = data.power || 0
+  const impact = useStore((state) => state.infrastructureImpact.evse)
+  const isAffected = !!impact
   
   const stateConfig = {
     Charging: { color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)', icon: Zap },
@@ -185,46 +299,69 @@ function EVSENode({ data, selected }) {
     Faulted: { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)', icon: AlertTriangle },
     Unavailable: { color: '#71717a', bg: 'rgba(113, 113, 122, 0.1)', icon: PlugZap },
   }
-  const config = stateConfig[state] || stateConfig.Unavailable
+  const config = isAffected 
+    ? { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)', icon: ShieldAlert }
+    : (stateConfig[state] || stateConfig.Unavailable)
   const StateIcon = config.icon
 
   return (
     <div 
-      className={`evse-node-3d ${selected ? 'selected' : ''}`} 
+      className={`evse-node-3d ${selected ? 'selected' : ''} ${isAffected ? 'affected' : ''}`} 
       style={{ '--state-color': config.color, '--state-bg': config.bg }}
     >
       <Handle type="target" position={Position.Left} id="in" className="handle-amber" />
       <Handle type="source" position={Position.Right} id="out" className="handle-amber" />
       
       {/* Electric glow effect */}
-      {isCharging && <div className="evse-glow" />}
+      {isCharging && !isAffected && <div className="evse-glow" />}
+      {isAffected && <div className="evse-attack-glow" />}
       
       <div className="evse-header">
-        <div className="evse-icon-wrap" style={{ borderColor: config.color }}>
-          <PlugZap size={28} style={{ color: config.color }} />
+        <div className={`evse-icon-wrap ${isAffected ? 'affected' : ''}`} style={{ borderColor: config.color }}>
+          {isAffected ? <ShieldAlert size={28} style={{ color: '#ef4444' }} /> : <PlugZap size={28} style={{ color: config.color }} />}
         </div>
-        {isCharging && (
+        {isCharging && !isAffected && (
           <div className="power-badge">
             <Zap size={10} />
             {power > 0 ? `${(power/1000).toFixed(1)}kW` : 'ON'}
+          </div>
+        )}
+        {isAffected && (
+          <div className="attack-badge">
+            <AlertTriangle size={10} />
+            BREACH
           </div>
         )}
       </div>
       
       <div className="evse-info">
         <span className="evse-label">{data.label}</span>
-        <div className="evse-state" style={{ color: config.color, background: config.bg }}>
-          <StateIcon size={12} />
-          {state}
-        </div>
+        {isAffected ? (
+          <>
+            <div className="evse-state affected" style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.2)' }}>
+              <ShieldAlert size={12} />
+              COMPROMISED
+            </div>
+            <div className="evse-impact">
+              <span className="impact-cve">{impact.cve}</span>
+              <span className="impact-text">{impact.impact}</span>
+            </div>
+          </>
+        ) : (
+          <div className="evse-state" style={{ color: config.color, background: config.bg }}>
+            <StateIcon size={12} />
+            {state}
+          </div>
+        )}
       </div>
       
       {/* Connector visualization */}
       <div className="evse-connector">
-        <div className={`connector-port ${isCharging ? 'active' : ''}`}>
+        <div className={`connector-port ${isCharging ? 'active' : ''} ${isAffected ? 'compromised' : ''}`}>
           <div className="port-inner" />
         </div>
-        {isCharging && <div className="cable-active" />}
+        {isCharging && !isAffected && <div className="cable-active" />}
+        {isAffected && <div className="cable-compromised" />}
       </div>
       
       <style>{`
@@ -253,6 +390,10 @@ function EVSENode({ data, selected }) {
             0 8px 32px rgba(0, 0, 0, 0.4),
             0 0 30px rgba(245, 158, 11, 0.25);
         }
+        .evse-node-3d.affected {
+          border-color: #ef4444;
+          animation: evse-affected-pulse 1s ease-in-out infinite;
+        }
         .evse-glow {
           position: absolute;
           top: 0;
@@ -262,6 +403,17 @@ function EVSENode({ data, selected }) {
           border-radius: 14px;
           background: radial-gradient(ellipse at center, rgba(34, 197, 94, 0.1) 0%, transparent 70%);
           pointer-events: none;
+        }
+        .evse-attack-glow {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border-radius: 14px;
+          background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.2) 0%, transparent 70%);
+          pointer-events: none;
+          animation: attack-glow-pulse 0.8s ease-in-out infinite;
         }
         .evse-header {
           display: flex;
@@ -279,6 +431,11 @@ function EVSENode({ data, selected }) {
           display: flex;
           align-items: center;
           justify-content: center;
+          transition: all 0.3s;
+        }
+        .evse-icon-wrap.affected {
+          animation: icon-shake 0.3s ease-in-out infinite;
+          background: rgba(239, 68, 68, 0.1);
         }
         .power-badge {
           position: absolute;
@@ -294,6 +451,22 @@ function EVSENode({ data, selected }) {
           align-items: center;
           gap: 2px;
           box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+        }
+        .attack-badge {
+          position: absolute;
+          top: -6px;
+          right: -8px;
+          background: linear-gradient(90deg, #dc2626, #ef4444);
+          color: white;
+          font-size: 0.55rem;
+          font-weight: 700;
+          padding: 3px 6px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5);
+          animation: badge-pulse 0.6s ease-in-out infinite;
         }
         .evse-info {
           display: flex;
@@ -317,6 +490,30 @@ function EVSENode({ data, selected }) {
           padding: 3px 8px;
           border-radius: 4px;
         }
+        .evse-state.affected {
+          animation: status-blink 0.5s ease-in-out infinite;
+        }
+        .evse-impact {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          max-width: 130px;
+        }
+        .evse-impact .impact-cve {
+          font-size: 0.55rem;
+          font-family: 'JetBrains Mono', monospace;
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.15);
+          padding: 1px 4px;
+          border-radius: 2px;
+        }
+        .evse-impact .impact-text {
+          font-size: 0.6rem;
+          color: #fca5a5;
+          text-align: center;
+          line-height: 1.3;
+        }
         .evse-connector {
           margin-top: 10px;
           display: flex;
@@ -339,6 +536,11 @@ function EVSENode({ data, selected }) {
           border-color: #22c55e;
           box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
         }
+        .connector-port.compromised {
+          border-color: #ef4444;
+          box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+          animation: port-alert 0.5s ease-in-out infinite;
+        }
         .port-inner {
           width: 8px;
           height: 6px;
@@ -348,6 +550,9 @@ function EVSENode({ data, selected }) {
         .connector-port.active .port-inner {
           background: #22c55e;
         }
+        .connector-port.compromised .port-inner {
+          background: #ef4444;
+        }
         .cable-active {
           width: 4px;
           height: 12px;
@@ -355,9 +560,45 @@ function EVSENode({ data, selected }) {
           border-radius: 2px;
           animation: cable-pulse 1s ease-in-out infinite;
         }
+        .cable-compromised {
+          width: 4px;
+          height: 12px;
+          background: linear-gradient(180deg, #ef4444 0%, transparent 100%);
+          border-radius: 2px;
+          animation: cable-alert 0.4s ease-in-out infinite;
+        }
         @keyframes cable-pulse {
           0%, 100% { opacity: 1; height: 12px; }
           50% { opacity: 0.6; height: 8px; }
+        }
+        @keyframes cable-alert {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        @keyframes evse-affected-pulse {
+          0%, 100% { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(239, 68, 68, 0.3); }
+          50% { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 40px rgba(239, 68, 68, 0.5); }
+        }
+        @keyframes attack-glow-pulse {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 1; }
+        }
+        @keyframes icon-shake {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-5deg); }
+          75% { transform: rotate(5deg); }
+        }
+        @keyframes badge-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+        @keyframes status-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+        @keyframes port-alert {
+          0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+          50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); }
         }
       `}</style>
     </div>
@@ -367,40 +608,63 @@ function EVSENode({ data, selected }) {
 function CSMSNode({ data, selected }) {
   const isOnline = data.status === 'online'
   const connections = data.connections || 0
+  const impact = useStore((state) => state.infrastructureImpact.csms)
+  const isAffected = !!impact
   
   return (
-    <div className={`csms-node-3d ${isOnline ? 'online' : 'offline'} ${selected ? 'selected' : ''}`}>
+    <div className={`csms-node-3d ${isOnline ? 'online' : 'offline'} ${selected ? 'selected' : ''} ${isAffected ? 'affected' : ''}`}>
       <Handle type="target" position={Position.Left} id="in" className="handle-amber" />
       
       {/* Server glow */}
-      {isOnline && <div className="csms-glow" />}
+      {isOnline && !isAffected && <div className="csms-glow" />}
+      {isAffected && <div className="csms-attack-glow" />}
       
       <div className="csms-icon-container">
-        <div className="server-rack">
-          <Server size={40} className="server-icon" />
+        <div className={`server-rack ${isAffected ? 'affected' : ''}`}>
+          <Server size={40} className={`server-icon ${isAffected ? 'affected' : ''}`} />
           <div className="server-leds">
             {[0, 1, 2, 3].map(i => (
               <div 
                 key={i} 
-                className={`led ${isOnline ? 'active' : ''} ${i < connections ? 'connected' : ''}`}
+                className={`led ${isOnline ? 'active' : ''} ${i < connections ? 'connected' : ''} ${isAffected ? 'alert' : ''}`}
                 style={{ animationDelay: `${i * 0.2}s` }}
               />
             ))}
           </div>
+          {isAffected && (
+            <div className="server-alert-badge">
+              <AlertTriangle size={14} />
+            </div>
+          )}
         </div>
       </div>
       
       <div className="csms-info">
         <span className="csms-label">{data.label}</span>
-        <div className={`csms-status ${isOnline ? 'online' : 'offline'}`}>
-          {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
-          {isOnline ? 'Online' : 'Offline'}
-        </div>
-        {connections > 0 && (
-          <div className="csms-connections">
-            <PlugZap size={10} />
-            {connections} connected
-          </div>
+        {isAffected ? (
+          <>
+            <div className="csms-status affected">
+              <ShieldAlert size={12} />
+              BREACH DETECTED
+            </div>
+            <div className="csms-impact">
+              <span className="impact-cve">{impact.cve}</span>
+              <span className="impact-text">{impact.impact}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={`csms-status ${isOnline ? 'online' : 'offline'}`}>
+              {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
+              {isOnline ? 'Online' : 'Offline'}
+            </div>
+            {connections > 0 && (
+              <div className="csms-connections">
+                <PlugZap size={10} />
+                {connections} connected
+              </div>
+            )}
+          </>
         )}
       </div>
       
@@ -430,6 +694,10 @@ function CSMSNode({ data, selected }) {
         .csms-node-3d.offline {
           border-color: rgba(239, 68, 68, 0.4);
         }
+        .csms-node-3d.affected {
+          border-color: #ef4444;
+          animation: csms-affected-pulse 1s ease-in-out infinite;
+        }
         .csms-node-3d.selected {
           border-color: #f59e0b;
           box-shadow: 
@@ -446,6 +714,17 @@ function CSMSNode({ data, selected }) {
           background: radial-gradient(ellipse at top, rgba(245, 158, 11, 0.08) 0%, transparent 60%);
           pointer-events: none;
         }
+        .csms-attack-glow {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border-radius: 14px;
+          background: radial-gradient(ellipse at top, rgba(239, 68, 68, 0.2) 0%, transparent 60%);
+          pointer-events: none;
+          animation: csms-glow-pulse 0.8s ease-in-out infinite;
+        }
         .csms-icon-container {
           display: flex;
           justify-content: center;
@@ -457,12 +736,23 @@ function CSMSNode({ data, selected }) {
           background: linear-gradient(180deg, #252830 0%, #1c1e22 100%);
           border-radius: 10px;
           border: 1px solid #3a3d44;
+          transition: all 0.3s;
+        }
+        .server-rack.affected {
+          border-color: #ef4444;
+          background: linear-gradient(180deg, #2d1f1f 0%, #1c1518 100%);
+          animation: rack-shake 0.3s ease-in-out infinite;
         }
         .server-icon {
           color: #f59e0b;
           filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.3));
+          transition: all 0.3s;
         }
-        .online .server-icon {
+        .server-icon.affected {
+          color: #ef4444;
+          filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+        }
+        .online .server-icon:not(.affected) {
           animation: server-pulse 3s ease-in-out infinite;
         }
         .server-leds {
@@ -488,6 +778,25 @@ function CSMSNode({ data, selected }) {
         .led.connected {
           background: #22c55e;
           box-shadow: 0 0 4px rgba(34, 197, 94, 0.6);
+        }
+        .led.alert {
+          background: #ef4444 !important;
+          box-shadow: 0 0 6px rgba(239, 68, 68, 0.8) !important;
+          animation: led-alert 0.3s ease-in-out infinite !important;
+        }
+        .server-alert-badge {
+          position: absolute;
+          top: -8px;
+          right: -8px;
+          background: #ef4444;
+          border-radius: 50%;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          animation: alert-badge-pulse 0.5s ease-in-out infinite;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.6);
         }
         .csms-info {
           display: flex;
@@ -519,12 +828,39 @@ function CSMSNode({ data, selected }) {
           color: #ef4444;
           background: rgba(239, 68, 68, 0.15);
         }
+        .csms-status.affected {
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.2);
+          animation: status-blink 0.5s ease-in-out infinite;
+        }
         .csms-connections {
           display: flex;
           align-items: center;
           gap: 4px;
           font-size: 0.7rem;
           color: #a1a1aa;
+        }
+        .csms-impact {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          max-width: 140px;
+          margin-top: 4px;
+        }
+        .csms-impact .impact-cve {
+          font-size: 0.55rem;
+          font-family: 'JetBrains Mono', monospace;
+          color: #ef4444;
+          background: rgba(239, 68, 68, 0.15);
+          padding: 1px 4px;
+          border-radius: 2px;
+        }
+        .csms-impact .impact-text {
+          font-size: 0.6rem;
+          color: #fca5a5;
+          text-align: center;
+          line-height: 1.3;
         }
         @keyframes server-pulse {
           0%, 100% { filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.3)); }
@@ -533,6 +869,31 @@ function CSMSNode({ data, selected }) {
         @keyframes led-blink {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
+        }
+        @keyframes led-alert {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.3); }
+        }
+        @keyframes csms-affected-pulse {
+          0%, 100% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(239, 68, 68, 0.3); }
+          50% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 45px rgba(239, 68, 68, 0.5); }
+        }
+        @keyframes csms-glow-pulse {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 1; }
+        }
+        @keyframes rack-shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-2px); }
+          75% { transform: translateX(2px); }
+        }
+        @keyframes alert-badge-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+        }
+        @keyframes status-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
         }
       `}</style>
     </div>
