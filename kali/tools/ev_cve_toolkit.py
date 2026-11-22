@@ -18,11 +18,13 @@ import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-# Target definitions
+# Target definitions - Use container name for Docker network connectivity
+VULNERABLE_CPS_HOST = "evcr-vulnerable-cps"
+
 TARGETS = {
     "hardy_barth": {
         "name": "Hardy Barth eCharge Salia",
-        "host": "localhost",  # Use container name in Docker network
+        "host": VULNERABLE_CPS_HOST,
         "port": 8081,
         "cves": ["CVE-2024-11665", "CVE-2024-11666"],
         "script": "cve_2024_11665_hardy_barth_rce.py",
@@ -30,15 +32,15 @@ TARGETS = {
     },
     "schneider": {
         "name": "Schneider Electric EVlink",
-        "host": "localhost",
+        "host": VULNERABLE_CPS_HOST,
         "port": 8082,
         "cves": ["CVE-2018-7800", "CVE-2018-7801"],
-        "script": None,  # TODO: Create script
+        "script": "cve_2018_7800_schneider_evlink.py",
         "description": "Code injection + Arbitrary command execution"
     },
     "wallbox": {
         "name": "Wallbox Pulsar Plus",
-        "host": "localhost",
+        "host": VULNERABLE_CPS_HOST,
         "port": 8083,
         "cves": ["CVE-2023-32249"],
         "script": "cve_2023_32249_wallbox_unauth.py",
@@ -46,7 +48,7 @@ TARGETS = {
     },
     "chargepoint": {
         "name": "ChargePoint Home Flex",
-        "host": "localhost",
+        "host": VULNERABLE_CPS_HOST,
         "port": 8084,
         "cves": ["CVE-2022-26132"],
         "script": "cve_2022_26132_chargepoint_dos.py",
@@ -54,7 +56,7 @@ TARGETS = {
     },
     "generic_web": {
         "name": "Generic WebConnect Pro",
-        "host": "localhost",
+        "host": VULNERABLE_CPS_HOST,
         "port": 8085,
         "cves": ["CVE-2024-43659"],
         "script": "cve_2024_43659_credential_exposure.py",
@@ -62,10 +64,10 @@ TARGETS = {
     },
     "iso15118": {
         "name": "ISO 15118 PnC Gateway",
-        "host": "localhost",
+        "host": VULNERABLE_CPS_HOST,
         "port": 8086,
         "cves": ["CVE-2025-12357"],
-        "script": None,  # TODO: Create script
+        "script": "cve_2025_12357_iso15118_mitm.py",
         "description": "MitM attack on charging communication"
     }
 }
@@ -178,7 +180,7 @@ def run_exploit(cve_id: str):
         print(f"[-] Exploit script not implemented yet")
         return
     
-    script_path = f"/opt/tools/{target['script']}"
+    script_path = f"/root/tools/{target['script']}"
     
     print(f"\n[*] Running: python3 {script_path} {target['host']} {target['port']}")
     print("="*70)
