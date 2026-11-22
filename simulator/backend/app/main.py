@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import CORS_ORIGINS
 from .mqtt_bridge import bridge
 from .websocket_manager import ws_manager
-from .routers import attacks, control, events, station as station_router, ocpp
+from .routers import attacks, control, events, station as station_router, ocpp, attack_feed
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,6 +68,7 @@ app.include_router(control.router)
 app.include_router(attacks.router)
 app.include_router(events.router)
 app.include_router(ocpp.router)
+app.include_router(attack_feed.router)
 
 
 # ──────────────────────────────────────────────────────────────
