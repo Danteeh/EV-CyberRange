@@ -3,11 +3,13 @@ import { useStore } from './store'
 import TopologyCanvas from './components/TopologyCanvas'
 import Sidebar from './components/Sidebar'
 import EmbeddedPanel from './components/EmbeddedPanel'
+import LiveAttackFeed from './components/LiveAttackFeed'
 import StatusBar from './components/StatusBar'
+import CVEDetailPanel from './components/CVEDetailPanel'
 import { 
   Monitor, Terminal, Activity, Shield, Settings, 
   ChevronLeft, ChevronRight, Maximize2, Minimize2,
-  Zap, Server, Car, Radio
+  Zap, Server, Car, Radio, Skull
 } from 'lucide-react'
 
 // Layout modes
@@ -20,6 +22,7 @@ const LAYOUTS = {
 // Embedded panel options
 const EMBED_OPTIONS = [
   { id: 'kali', label: 'Kali Linux', icon: Terminal },
+  { id: 'attacks', label: 'Live Attacks', icon: Skull },
   { id: 'nodered', label: 'EVerest', icon: Radio },
   { id: 'logs', label: 'OCPP Logs', icon: Activity },
 ]
@@ -29,6 +32,7 @@ export default function App() {
   const [layout, setLayout] = useState(LAYOUTS.topology)
   const [activeEmbed, setActiveEmbed] = useState(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [selectedCVE, setSelectedCVE] = useState(null)
 
   useEffect(() => { startPolling() }, [])
 
@@ -107,15 +111,25 @@ export default function App() {
         {/* Content */}
         <div className="app-content">
           {layout === LAYOUTS.topology && (
-            <div className="content-full">
-              <TopologyCanvas />
+            <div className="content-full" style={{ display: 'flex' }}>
+              <div style={{ flex: 1 }}>
+                <TopologyCanvas onNodeSelect={(cve) => setSelectedCVE(cve)} />
+              </div>
+              {selectedCVE && (
+                <CVEDetailPanel cveId={selectedCVE} onClose={() => setSelectedCVE(null)} />
+              )}
             </div>
           )}
 
           {layout === LAYOUTS.split && (
             <>
-              <div className="content-left">
-                <TopologyCanvas />
+              <div className="content-left" style={{ display: 'flex' }}>
+                <div style={{ flex: 1 }}>
+                  <TopologyCanvas onNodeSelect={(cve) => setSelectedCVE(cve)} />
+                </div>
+                {selectedCVE && (
+                  <CVEDetailPanel cveId={selectedCVE} onClose={() => setSelectedCVE(null)} />
+                )}
               </div>
               <div className="content-right">
                 <div className="embed-header">

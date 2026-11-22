@@ -2,59 +2,67 @@
 
 :root {
   /* ═══════════════════════════════════════════════════════════
-     EV-CyberRange - Professional Industrial Palette
-     Inspired by: Control rooms, SCADA systems, automotive dashboards
+     EV-CyberRange - Electric Amber Industrial Palette
+     Inspired by: High voltage, charging infrastructure, OT/SCADA
      ═══════════════════════════════════════════════════════════ */
   
-  /* Base surfaces - warm dark grays with slight blue undertone */
-  --cr-bg: #1a1d24;
-  --cr-bg-deep: #12141a;
-  --cr-surface: #22262f;
-  --cr-surface2: #2a2f3a;
-  --cr-surface3: #343a47;
+  /* Base surfaces - deep charcoal with warm undertone */
+  --cr-bg: #141518;
+  --cr-bg-deep: #0c0d0f;
+  --cr-surface: #1c1e22;
+  --cr-surface2: #252830;
+  --cr-surface3: #2e323b;
   
-  /* Borders - subtle, not harsh */
-  --cr-border: #3d4451;
-  --cr-border-light: #4a5162;
+  /* Borders - warm grays */
+  --cr-border: #3a3d44;
+  --cr-border-light: #4a4e58;
   
-  /* Primary accent - professional teal (not neon cyan) */
-  --cr-accent: #4da6a8;
-  --cr-accent-dim: #3d8486;
-  --cr-accent-bright: #5cbdbf;
+  /* Primary accent - Electric Amber/Copper */
+  --cr-accent: #f59e0b;
+  --cr-accent-dim: #d97706;
+  --cr-accent-bright: #fbbf24;
+  --cr-accent-glow: rgba(245, 158, 11, 0.4);
   
-  /* Secondary accent - muted gold/amber */
-  --cr-secondary: #c9a227;
-  --cr-secondary-dim: #a68520;
+  /* Secondary accent - Copper/Bronze */
+  --cr-secondary: #b45309;
+  --cr-secondary-dim: #92400e;
   
-  /* Status colors - desaturated, professional */
-  --cr-success: #4a9f6e;
-  --cr-success-dim: #3a7d56;
-  --cr-warning: #c9913a;
-  --cr-warning-dim: #a67830;
-  --cr-danger: #c45c5c;
-  --cr-danger-dim: #9e4a4a;
-  --cr-info: #5c8dc4;
+  /* Status colors - industrial */
+  --cr-success: #22c55e;
+  --cr-success-dim: #16a34a;
+  --cr-warning: #f59e0b;
+  --cr-warning-dim: #d97706;
+  --cr-danger: #ef4444;
+  --cr-danger-dim: #dc2626;
+  --cr-info: #3b82f6;
   
-  /* Text - warm whites and grays */
-  --cr-text: #e8eaed;
-  --cr-text-secondary: #b4b9c2;
-  --cr-text-muted: #7d8590;
-  --cr-text-dim: #5c6370;
+  /* Text - clean whites */
+  --cr-text: #f4f4f5;
+  --cr-text-secondary: #a1a1aa;
+  --cr-text-muted: #71717a;
+  --cr-text-dim: #52525b;
   
-  /* Special elements */
-  --cr-charging: #4a9f6e;
-  --cr-ev-body: #2c5282;
-  --cr-evse-body: #3d4451;
-  --cr-server: #2d3748;
-  --cr-kali: #3d2d4a;
+  /* Special elements - Electric theme */
+  --cr-charging: #22c55e;
+  --cr-ev-body: #374151;
+  --cr-ev-accent: #f59e0b;
+  --cr-evse-body: #f59e0b;
+  --cr-server: #1e293b;
+  --cr-kali: #7c3aed;
+  --cr-vulnerable: #ef4444;
+  
+  /* Electric effects */
+  --cr-electric-glow: rgba(245, 158, 11, 0.5);
+  --cr-power-flow: #fbbf24;
   
   /* Shadows */
-  --cr-shadow: rgba(0, 0, 0, 0.3);
-  --cr-shadow-lg: rgba(0, 0, 0, 0.5);
+  --cr-shadow: rgba(0, 0, 0, 0.4);
+  --cr-shadow-lg: rgba(0, 0, 0, 0.6);
+  --cr-shadow-accent: rgba(245, 158, 11, 0.2);
   
-  /* Grid */
-  --cr-grid: #262b35;
-  --cr-grid-accent: #2d3340;
+  /* Grid - subtle amber tint */
+  --cr-grid: rgba(245, 158, 11, 0.06);
+  --cr-grid-accent: rgba(245, 158, 11, 0.12);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -261,37 +269,157 @@ body {
 .status-dot.offline { background: var(--cr-danger); }
 .status-dot.warning { background: var(--cr-warning); }
 
-/* React Flow customization */
+/* ═══════════════════════════════════════════════════════════
+   React Flow - Electric Amber Theme
+   ═══════════════════════════════════════════════════════════ */
+
 .react-flow__node {
   cursor: grab;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .react-flow__node:active {
   cursor: grabbing;
 }
 
+.react-flow__node.selected {
+  z-index: 100 !important;
+}
+
 .react-flow__background {
-  background: var(--cr-bg-deep) !important;
+  background: transparent !important;
 }
 
+.react-flow__pane {
+  background: transparent !important;
+}
+
+/* Edge styling */
+.react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 6, 6;
+}
+
+/* Connection line */
+.react-flow__connection-line {
+  stroke: #f59e0b !important;
+  stroke-width: 2px !important;
+  stroke-dasharray: 6, 6;
+}
+
+/* Handle styling - Electric Amber */
+.react-flow__handle {
+  width: 14px !important;
+  height: 14px !important;
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 0 10px rgba(245, 158, 11, 0.3) !important;
+  transition: all 0.2s ease !important;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.2) !important;
+  box-shadow: 
+    0 3px 10px rgba(0, 0, 0, 0.5),
+    0 0 15px rgba(245, 158, 11, 0.5) !important;
+}
+
+.react-flow__handle-left {
+  left: -7px !important;
+}
+
+.react-flow__handle-right {
+  right: -7px !important;
+}
+
+/* MiniMap - Amber theme */
 .react-flow__minimap {
-  background: var(--cr-surface) !important;
-  border: 1px solid var(--cr-border) !important;
-  border-radius: 6px !important;
+  background: linear-gradient(145deg, #1c1e22, #141518) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden !important;
 }
 
+.react-flow__minimap-mask {
+  fill: rgba(12, 13, 15, 0.85) !important;
+}
+
+/* Controls - Amber theme */
 .react-flow__controls {
-  background: var(--cr-surface) !important;
-  border: 1px solid var(--cr-border) !important;
-  border-radius: 6px !important;
+  background: linear-gradient(145deg, #1c1e22, #141518) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden !important;
 }
 
 .react-flow__controls-button {
-  background: var(--cr-surface2) !important;
-  border-bottom-color: var(--cr-border) !important;
-  fill: var(--cr-text-muted) !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.15) !important;
+  fill: #71717a !important;
+  transition: all 0.15s ease !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
 }
 
 .react-flow__controls-button:hover {
-  background: var(--cr-surface3) !important;
+  background: rgba(245, 158, 11, 0.1) !important;
+  fill: #f59e0b !important;
 }
+
+.react-flow__controls-button svg {
+  transition: fill 0.15s ease !important;
+}
+
+/* Selection box */
+.react-flow__selection {
+  background: rgba(245, 158, 11, 0.1) !important;
+  border: 1px dashed #f59e0b !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Electric Animations
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes electric-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+  }
+  50% { 
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.6);
+  }
+}
+
+@keyframes power-flow {
+  0% { stroke-dashoffset: 12; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes charging-glow {
+  0%, 100% { 
+    filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.4));
+  }
+  50% { 
+    filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.7));
+  }
+}
+
+@keyframes danger-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.electric-pulse { animation: electric-pulse 2s ease-in-out infinite; }
+.power-flow { animation: power-flow 1s linear infinite; }
+.charging-glow { animation: charging-glow 2s ease-in-out infinite; }
+.danger-blink { animation: danger-blink 1s ease-in-out infinite; }

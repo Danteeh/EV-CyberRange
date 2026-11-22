@@ -11,12 +11,25 @@ export const useStore = create((set, get) => ({
   chargePoints: [],
   recentEvents: [],
   
+  // ── Attack State ──────────────────────────────────────────
+  activeAttacks: {}, // { "target:port": { cve, severity, startTime } }
+  attackEvents: [],
+  
+  // ── Topology State (persisted) ────────────────────────────
+  topologyNodes: null, // Will be initialized on first load
+  topologyEdges: null,
+  
+  setTopologyNodes: (nodes) => set({ topologyNodes: nodes }),
+  setTopologyEdges: (edges) => set({ topologyEdges: edges }),
+  resetTopology: () => set({ topologyNodes: null, topologyEdges: null }),
+  
   // ── UI ────────────────────────────────────────────────────
   selectedConnector: 1,
   activePanel: 'control',
 
   // ── Polling para verificar servicios ──────────────────────
   _pollInterval: null,
+  _attackFeedSource: null,
 
   startPolling() {
     const existing = get()._pollInterval
@@ -28,6 +41,9 @@ export const useStore = create((set, get) => ({
     // Poll every 5 seconds
     const interval = setInterval(() => get().checkServices(), 5000)
     set({ _pollInterval: interval })
+    
+    // Start attack feed SSE
+    get().connectAttackFeed()
   },
 
   stopPolling() {
@@ -36,6 +52,83 @@ export const useStore = create((set, get) => ({
       clearInterval(interval)
       set({ _pollInterval: null })
     }
+    
+    const eventSource = get()._attackFeedSource
+    if (eventSource) {
+      eventSource.close()
+      set({ _attackFeedSource: null })
+    }
+  },
+
+  connectAttackFeed() {
+    const existing = get()._attackFeedSource
+    if (existing) existing.close()
+    
+    try {
+      const eventSource = new EventSource('/api/attack-feed/stream')
+      
+      eventSource.onmessage = (e) => {
+        try {
+          const event = JSON.parse(e.data)
+          get().processAttackEvent(event)
+        } catch (err) {
+          console.error('[AttackFeed] Failed to parse:', err)
+        }
+      }
+      
+      eventSource.onerror = (err) => {
+        console.error('[AttackFeed] SSE error, reconnecting in 3s...', err)
+        eventSource.close()
+        setTimeout(() => get().connectAttackFeed(), 3000)
+      }
+      
+      set({ _attackFeedSource: eventSource })
+    } catch (err) {
+      console.error('[AttackFeed] Failed to connect:', err)
+    }
+  },
+  
+  processAttackEvent(event) {
+    const { activeAttacks, attackEvents } = get()
+    const target = event.target
+    
+    // Add to events list
+    const newEvents = [...attackEvents, { ...event, id: Date.now() + Math.random() }].slice(-100)
+    
+    // Update active attacks based on event type
+    const newActiveAttacks = { ...activeAttacks }
+    
+    if (event.type === 'attack_start') {
+      newActiveAttacks[target] = {
+        cve: event.cve,
+        severity: event.severity,
+        name: event.name,
+        startTime: event.timestamp,
+        attack_type: event.attack_type
+      }
+    } else if (event.type === 'attack_success' || event.type === 'attack_failure') {
+      // Keep attack visible for 10 seconds after completion
+      if (newActiveAttacks[target]) {
+        newActiveAttacks[target].completed = true
+        newActiveAttacks[target].success = event.type === 'attack_success'
+        setTimeout(() => {
+          const current = get().activeAttacks
+          const updated = { ...current }
+          delete updated[target]
+          set({ activeAttacks: updated })
+        }, 10000)
+      }
+    }
+    
+    set({ 
+      attackEvents: newEvents,
+      activeAttacks: newActiveAttacks
+    })
+  },
+  
+  isUnderAttack(target) {
+    const { activeAttacks } = get()
+    return activeAttacks[target] || null
   },
 
   async checkServices() {

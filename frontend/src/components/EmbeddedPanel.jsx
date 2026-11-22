@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { RefreshCw, ExternalLink, Download } from 'lucide-react'
+import LiveAttackFeed from './LiveAttackFeed'
 
 const EMBED_URLS = {
   kali: 'http://localhost:6080/vnc.html?autoconnect=true&resize=scale',
@@ -9,6 +10,10 @@ const EMBED_URLS = {
 export default function EmbeddedPanel({ type }) {
   if (type === 'logs') {
     return <OCPPLogsPanel />
+  }
+
+  if (type === 'attacks') {
+    return <LiveAttackFeed />
   }
 
   const url = EMBED_URLS[type]
